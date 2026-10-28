@@ -128,7 +128,7 @@ export default function QuizRunner({
   }
 
   return (
-    <div className="max-w-4xl lg:max-w-5xl mx-auto py-8 sm:py-10 px-4 sm:px-6">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 w-full space-y-6">
       {/* Top Bar Minimalista e Ampla */}
       <div className="mb-6 sm:mb-8">
         <div className="flex items-center justify-between mb-3.5">

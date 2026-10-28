@@ -79,15 +79,15 @@ export default function SettingsTab({
       } else {
         setStatus({ 
           type: 'success', 
-          message: `Chave salva e validada com sucesso no SQLite! Conexão ativa com o ${confirmedModel}.` 
+          message: `Chave do Google Gemini validada e gravada com sucesso! Conexão ativa com o modelo ${confirmedModel}.` 
         });
       }
     } catch (err) {
-      // Mesmo se houver aviso de conexão, A CHAVE ESTÁ SALVA!
       setStatus({ 
-        type: 'warning', 
-        message: `Chave salva com sucesso no banco de dados local! Aviso da conexão: ${err.message}. (Você já pode usar o simulador normalmente).` 
+        type: 'error', 
+        message: err.message || 'Falha ao validar a chave da API com o Google Gemini. Verifique a chave ou sua conexão.' 
       });
+      setIsEditingKey(true);
     } finally {
       setTesting(false);
     }
@@ -95,12 +95,12 @@ export default function SettingsTab({
 
   // Remover chave
   const handleRemoveKey = () => {
-    if (window.confirm('Tem certeza que deseja remover sua chave de API deste navegador?')) {
+    if (window.confirm('Tem certeza que deseja desconectar e remover sua API Key?')) {
       removeApiKey();
       setApiKey('');
       setInputKey('');
       setIsEditingKey(true);
-      setStatus({ type: 'success', message: 'Chave de API removida com sucesso.' });
+      setStatus({ type: 'success', message: 'Chave de API removida.' });
     }
   };
 
@@ -116,22 +116,29 @@ export default function SettingsTab({
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-      {/* Cabeçalho */}
-      <div>
-        <h2 className="text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2.5">
-          <Sliders className="w-6 h-6 text-blue-400" />
-          <span>Opções & Configurações do Simulador</span>
-        </h2>
-        <p className="text-sm text-slate-400 mt-1">
-          Configurado para o modelo <strong>Gemini 3.8 Flash</strong> com máxima velocidade e economia de tokens.
-        </p>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 w-full space-y-6">
+      {/* Cabeçalho Padronizado */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2.5">
+            <Sliders className="w-6 h-6 text-indigo-400" />
+            <span>Opções & Configurações do Simulador</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Configurado para o modelo <strong>Gemini 3.8 Flash</strong> com máxima velocidade e economia de tokens.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-300 px-3.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+          <Zap className="w-4 h-4 text-indigo-400" />
+          <span>Ativo: <strong className="text-indigo-300 font-semibold">{model}</strong></span>
+        </div>
       </div>
 
       {/* FEEDBACK GLOBAL DE STATUS */}
       {status && (
         <div
-          className={`p-4 rounded-2xl border flex items-start justify-between gap-3 text-sm animate-in fade-in duration-200 ${
+          className={`p-4 rounded-2xl border flex items-start justify-between gap-3 text-xs sm:text-sm animate-in fade-in duration-200 ${
             status.type === 'success'
               ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
               : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
@@ -147,7 +154,7 @@ export default function SettingsTab({
           </div>
           <button 
             onClick={() => setStatus(null)}
-            className="text-xs opacity-70 hover:opacity-100"
+            className="text-xs opacity-70 hover:opacity-100 cursor-pointer"
           >
             ✕
           </button>
@@ -155,15 +162,15 @@ export default function SettingsTab({
       )}
 
       {/* SEÇÃO 1: GERENCIAMENTO DA API KEY */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
+      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-6 sm:p-7 shadow-xl shadow-black/30">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-white/[0.08]">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-2xl border border-blue-500/20">
-              <KeyRound className="w-6 h-6" />
+            <div className="p-2.5 bg-indigo-500/15 text-indigo-400 rounded-xl border border-indigo-500/30">
+              <KeyRound className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-100">Chave da API do Google Gemini</h3>
-              <p className="text-xs text-slate-400">Usada para gerar questões em tempo real</p>
+              <h2 className="text-base sm:text-lg font-bold text-slate-100">Chave da API do Google Gemini</h2>
+              <p className="text-xs sm:text-sm text-slate-400">Usada para gerar questões em tempo real</p>
             </div>
           </div>
 
@@ -186,10 +193,10 @@ export default function SettingsTab({
         {/* Chave Salva - Modo Visualização */}
         {!isEditingKey && apiKey ? (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08] flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 overflow-hidden">
                 <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                <span className="text-sm font-mono text-slate-300 truncate">
+                <span className="text-xs sm:text-sm font-mono text-slate-300 truncate">
                   {showKey ? apiKey : apiKey.slice(0, 8) + '••••••••••••••••••••••••••••••••' + apiKey.slice(-4)}
                 </span>
               </div>
@@ -206,7 +213,7 @@ export default function SettingsTab({
                 <button
                   type="button"
                   onClick={() => setIsEditingKey(true)}
-                  className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-lg transition-colors border border-slate-700 cursor-pointer"
+                  className="px-3 py-1.5 text-xs bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 font-semibold rounded-xl transition-colors border border-white/[0.08] cursor-pointer"
                 >
                   Alterar Chave
                 </button>
@@ -218,7 +225,7 @@ export default function SettingsTab({
                 type="button"
                 onClick={handleSaveAndTest}
                 disabled={testing}
-                className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-medium rounded-xl text-xs transition-colors flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-semibold rounded-xl text-xs sm:text-sm transition-colors flex items-center gap-2 cursor-pointer"
               >
                 {testing ? 'Testando...' : `Testar Conexão (${model})`}
               </button>
@@ -237,7 +244,7 @@ export default function SettingsTab({
           /* Modo Edição / Inserção */
           <form onSubmit={handleSaveAndTest} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 Cole sua Gemini API Key abaixo
               </label>
               <div className="relative">
@@ -246,12 +253,12 @@ export default function SettingsTab({
                   value={inputKey}
                   onChange={(e) => setInputKey(e.target.value)}
                   placeholder="AIzaSy..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm pr-20"
+                  className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono text-xs sm:text-sm pr-20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(!showKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-200 px-2 py-1 bg-slate-800 rounded cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-200 px-2 py-1 bg-white/[0.06] rounded cursor-pointer"
                 >
                   {showKey ? 'Ocultar' : 'Mostrar'}
                 </button>
@@ -261,13 +268,13 @@ export default function SettingsTab({
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
               <span className="flex items-center gap-1 text-emerald-400">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Armazenada estritamente no seu localStorage local.
+                Armazenada estritamente no seu banco SQLite e localStorage local.
               </span>
               <a
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noreferrer"
-                className="text-blue-400 hover:underline flex items-center gap-1"
+                className="text-indigo-400 hover:underline flex items-center gap-1"
               >
                 Criar chave no Google AI Studio <ExternalLink className="w-3 h-3" />
               </a>
@@ -277,7 +284,7 @@ export default function SettingsTab({
               <button
                 type="submit"
                 disabled={testing}
-                className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/20 text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all cursor-pointer"
+                className="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/25 text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all cursor-pointer"
               >
                 {testing ? (
                   <>
@@ -299,7 +306,7 @@ export default function SettingsTab({
                     setInputKey(apiKey);
                     setIsEditingKey(false);
                   }}
-                  className="px-4 py-3 rounded-xl border border-slate-800 hover:bg-slate-800 text-slate-400 text-sm font-medium transition-colors cursor-pointer"
+                  className="px-4 py-3 rounded-xl border border-white/[0.08] hover:bg-white/[0.04] text-slate-400 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -309,12 +316,12 @@ export default function SettingsTab({
         )}
 
         {/* Escolha do Modelo Gemini (Foco no 3.8 Flash) */}
-        <div className="mt-6 pt-6 border-t border-slate-800 space-y-3">
+        <div className="mt-6 pt-6 border-t border-white/[0.08] space-y-3">
           <div className="flex items-center justify-between">
-            <label className="block text-sm font-semibold text-slate-200">
+            <label className="block text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300">
               Modelo Selecionado
             </label>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono font-medium">
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-mono font-medium">
               Ativo: {model}
             </span>
           </div>
@@ -330,18 +337,18 @@ export default function SettingsTab({
               }}
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
                 model === 'gemini-3.8-flash' && !customModel
-                  ? 'bg-gradient-to-r from-blue-600/25 to-indigo-600/25 border-blue-400 text-white ring-1 ring-blue-500/40 shadow-md'
-                  : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                  ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-md'
+                  : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
               }`}
             >
-              <div className="flex items-center gap-2 font-bold text-xs text-blue-300 mb-0.5">
-                <Zap className="w-3.5 h-3.5 text-blue-400" />
+              <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-indigo-300 mb-0.5">
+                <Zap className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Gemini 3.8 Flash</span>
                 {model === 'gemini-3.8-flash' && (
-                  <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.2 rounded font-semibold">Ativo</span>
+                  <span className="text-xs bg-indigo-500 text-white px-1.5 py-0.2 rounded font-semibold">Ativo</span>
                 )}
               </div>
-              <div className="text-[11px] text-slate-400 leading-tight">
+              <div className="text-xs text-slate-400 leading-tight">
                 Modelo principal oficial: ultrarrápido, raciocínio avançado e alta eficiência de tokens.
               </div>
             </button>
@@ -356,12 +363,12 @@ export default function SettingsTab({
               }}
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 model === 'gemini-3.6-flash' && !customModel
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-200'
-                  : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                  ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200'
+                  : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
               }`}
             >
-              <div className="font-semibold text-xs text-slate-200 mb-0.5">Gemini 3.6 Flash</div>
-              <div className="text-[11px] text-slate-400 leading-tight">Alternativa estável da família 3.x com alta disponibilidade.</div>
+              <div className="font-semibold text-xs sm:text-sm text-slate-200 mb-0.5">Gemini 3.6 Flash</div>
+              <div className="text-xs text-slate-400 leading-tight">Alternativa estável da família 3.x com alta disponibilidade.</div>
             </button>
 
             {/* Alternativa: 3.5 Flash-Lite */}
@@ -374,12 +381,12 @@ export default function SettingsTab({
               }}
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 model === 'gemini-3.5-flash-lite' && !customModel
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-200'
-                  : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                  ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200'
+                  : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
               }`}
             >
-              <div className="font-semibold text-xs text-slate-200 mb-0.5">Gemini 3.5 Flash-Lite</div>
-              <div className="text-[11px] text-slate-400 leading-tight">Versão ultraleve ideal para conexões rápidas.</div>
+              <div className="font-semibold text-xs sm:text-sm text-slate-200 mb-0.5">Gemini 3.5 Flash-Lite</div>
+              <div className="text-xs text-slate-400 leading-tight">Versão ultraleve ideal para conexões rápidas.</div>
             </button>
 
             {/* Alternativa: 3.1 Flash-Lite */}
@@ -392,12 +399,12 @@ export default function SettingsTab({
               }}
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 model === 'gemini-3.1-flash-lite' && !customModel
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-200'
-                  : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                  ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200'
+                  : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
               }`}
             >
-              <div className="font-semibold text-xs text-slate-200 mb-0.5">Gemini 3.1 Flash-Lite</div>
-              <div className="text-[11px] text-slate-400 leading-tight">Versão leve e veloz para grande volume de treino.</div>
+              <div className="font-semibold text-xs sm:text-sm text-slate-200 mb-0.5">Gemini 3.1 Flash-Lite</div>
+              <div className="text-xs text-slate-400 leading-tight">Versão leve e veloz para grande volume de treino.</div>
             </button>
 
             {/* Alternativa: 3 Flash Preview */}
@@ -410,12 +417,12 @@ export default function SettingsTab({
               }}
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 model === 'gemini-3-flash-preview' && !customModel
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-200'
-                  : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                  ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200'
+                  : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
               }`}
             >
-              <div className="font-semibold text-xs text-slate-200 mb-0.5">Gemini 3 Flash Preview</div>
-              <div className="text-[11px] text-slate-400 leading-tight">Versão prévia da geração 3 com alta velocidade.</div>
+              <div className="font-semibold text-xs sm:text-sm text-slate-200 mb-0.5">Gemini 3 Flash Preview</div>
+              <div className="text-xs text-slate-400 leading-tight">Versão prévia da geração 3 com alta velocidade.</div>
             </button>
 
             {/* Alternativa: 3.1 Pro Preview */}
@@ -428,12 +435,12 @@ export default function SettingsTab({
               }}
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 model === 'gemini-3.1-pro-preview' && !customModel
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-200'
-                  : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                  ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200'
+                  : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
               }`}
             >
-              <div className="font-semibold text-xs text-slate-200 mb-0.5">Gemini 3.1 Pro Preview</div>
-              <div className="text-[11px] text-slate-400 leading-tight">Para análises jurídicas e doutrinárias aprofundadas.</div>
+              <div className="font-semibold text-xs sm:text-sm text-slate-200 mb-0.5">Gemini 3.1 Pro Preview</div>
+              <div className="text-xs text-slate-400 leading-tight">Para análises jurídicas e doutrinárias aprofundadas.</div>
             </button>
           </div>
 
@@ -446,7 +453,7 @@ export default function SettingsTab({
                 value={customModel}
                 onChange={(e) => setCustomModel(e.target.value)}
                 placeholder="Ex: gemini-3.8-flash-preview..."
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                className="flex-1 bg-white/[0.02] border border-white/[0.08] rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
               />
               <button
                 type="button"
@@ -457,7 +464,7 @@ export default function SettingsTab({
                     setStatus({ type: 'success', message: `Modelo definido para ${customModel.trim()}` });
                   }
                 }}
-                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl transition-colors font-medium cursor-pointer"
+                className="px-4 py-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-200 text-xs sm:text-sm rounded-xl transition-colors font-semibold cursor-pointer"
               >
                 Aplicar
               </button>
@@ -467,20 +474,20 @@ export default function SettingsTab({
       </div>
 
       {/* SEÇÃO 2: OPÇÕES DA IA E PROPORÇÃO DE QUESTÕES */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
-            <Brain className="w-6 h-6" />
+      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-6 sm:p-7 shadow-xl shadow-black/30 space-y-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-white/[0.08]">
+          <div className="p-2.5 bg-indigo-500/15 text-indigo-400 rounded-xl border border-indigo-500/30">
+            <Brain className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-100">Parâmetros de Geração e Proporção</h3>
-            <p className="text-xs text-slate-400">Controle a proporção entre questões inéditas e questões reais de provas</p>
+            <h2 className="text-base sm:text-lg font-bold text-slate-100">Parâmetros de Geração e Proporção</h2>
+            <p className="text-xs sm:text-sm text-slate-400">Controle a proporção entre questões inéditas e questões reais de provas</p>
           </div>
         </div>
 
         {/* Proporção Inéditas vs Reais */}
         <div>
-          <label className="block text-sm font-semibold text-slate-200 mb-2">
+          <label className="block text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
             Proporção de Origem das Questões
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -496,12 +503,12 @@ export default function SettingsTab({
                 onClick={() => handlePrefChange('proporcao', p.id)}
                 className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   preferences.proporcao === p.id
-                    ? 'bg-blue-600/20 border-blue-500 text-blue-200 shadow-sm'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 shadow-sm'
+                    : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
                 }`}
               >
-                <div className="font-bold text-xs text-slate-100 mb-0.5">{p.label}</div>
-                <div className="text-[11px] text-slate-400 leading-tight">{p.sub}</div>
+                <div className="font-bold text-xs sm:text-sm text-slate-100 mb-0.5">{p.label}</div>
+                <div className="text-xs text-slate-400 leading-tight">{p.sub}</div>
               </button>
             ))}
           </div>
@@ -509,7 +516,7 @@ export default function SettingsTab({
 
         {/* Nível de Dificuldade */}
         <div>
-          <label className="block text-sm font-semibold text-slate-200 mb-2">
+          <label className="block text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
             Nível de Rigor e Dificuldade
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -524,12 +531,12 @@ export default function SettingsTab({
                 onClick={() => handlePrefChange('dificuldade', d.id)}
                 className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
                   preferences.dificuldade === d.id
-                    ? 'bg-blue-600 border-blue-500 text-white font-semibold'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-indigo-600 border-indigo-500 text-white font-semibold'
+                    : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
                 }`}
               >
-                <div className="text-xs">{d.label}</div>
-                <div className="text-[10px] text-slate-400 opacity-80 mt-0.5">{d.desc}</div>
+                <div className="text-xs sm:text-sm font-semibold">{d.label}</div>
+                <div className="text-xs text-slate-400 opacity-80 mt-0.5">{d.desc}</div>
               </button>
             ))}
           </div>
@@ -538,10 +545,10 @@ export default function SettingsTab({
         {/* Temperatura / Criatividade */}
         <div>
           <div className="flex justify-between items-center mb-1.5">
-            <label className="text-sm font-semibold text-slate-200">
+            <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300">
               Temperatura da IA (Fidelidade à Lei vs Criatividade)
             </label>
-            <span className="text-xs font-mono text-blue-400 font-semibold">
+            <span className="text-xs font-mono text-indigo-400 font-semibold">
               {preferences.temperatura === 0.2 ? '0.2 (Rigor Legal Estrito)' : preferences.temperatura === 0.3 ? '0.3 (Equilibrado)' : '0.6 (Mais Criativo)'}
             </span>
           </div>
@@ -555,23 +562,23 @@ export default function SettingsTab({
                 key={t.val}
                 type="button"
                 onClick={() => handlePrefChange('temperatura', t.val)}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                   preferences.temperatura === t.val
-                    ? 'bg-blue-600/20 border-blue-500 text-blue-200 font-semibold'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 font-semibold'
+                    : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
                 }`}
               >
-                <div className="text-xs text-slate-200">{t.label}</div>
-                <div className="text-[10px] text-slate-400">{t.desc}</div>
+                <div className="text-xs sm:text-sm font-semibold text-slate-200">{t.label}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{t.desc}</div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Foco Policial de Pernambuco */}
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-slate-800">
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08]">
           <div>
-            <div className="text-sm font-semibold text-slate-200">
+            <div className="text-xs sm:text-sm font-semibold text-slate-200">
               Contextualização com Pernambuco e PMPE
             </div>
             <div className="text-xs text-slate-400">
@@ -582,7 +589,7 @@ export default function SettingsTab({
             type="button"
             onClick={() => handlePrefChange('focoPMPE', !preferences.focoPMPE)}
             className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-              preferences.focoPMPE ? 'bg-blue-600' : 'bg-slate-800'
+              preferences.focoPMPE ? 'bg-indigo-600' : 'bg-white/[0.1]'
             }`}
           >
             <span
@@ -595,21 +602,21 @@ export default function SettingsTab({
       </div>
 
       {/* SEÇÃO 3: OPÇÕES DE INTERFACE E ESTUDO */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
-            <BookOpen className="w-6 h-6" />
+      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-6 sm:p-7 shadow-xl shadow-black/30 space-y-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-white/[0.08]">
+          <div className="p-2.5 bg-emerald-500/15 text-emerald-400 rounded-xl border border-emerald-500/30">
+            <BookOpen className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-100">Preferências de Interface & Resolução</h3>
-            <p className="text-xs text-slate-400">Ajuste como as dicas, justificativas e tamanhos de texto são exibidos</p>
+            <h2 className="text-base sm:text-lg font-bold text-slate-100">Preferências de Interface & Resolução</h2>
+            <p className="text-xs sm:text-sm text-slate-400">Ajuste como as dicas, justificativas e tamanhos de texto são exibidos</p>
           </div>
         </div>
 
         {/* Dica em Dropdown */}
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-slate-800">
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08]">
           <div>
-            <div className="text-sm font-semibold text-slate-200">
+            <div className="text-xs sm:text-sm font-semibold text-slate-200">
               Habilitar Dica em Dropdown no Quiz
             </div>
             <div className="text-xs text-slate-400">
@@ -620,7 +627,7 @@ export default function SettingsTab({
             type="button"
             onClick={() => handlePrefChange('mostrarDica', !preferences.mostrarDica)}
             className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-              preferences.mostrarDica ? 'bg-blue-600' : 'bg-slate-800'
+              preferences.mostrarDica ? 'bg-indigo-600' : 'bg-white/[0.1]'
             }`}
           >
             <span
@@ -632,9 +639,9 @@ export default function SettingsTab({
         </div>
 
         {/* Auto-expandir Motivo */}
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-slate-800">
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08]">
           <div>
-            <div className="text-sm font-semibold text-slate-200">
+            <div className="text-xs sm:text-sm font-semibold text-slate-200">
               Abrir Justificativa Automaticamente ao Responder
             </div>
             <div className="text-xs text-slate-400">
@@ -645,7 +652,7 @@ export default function SettingsTab({
             type="button"
             onClick={() => handlePrefChange('autoExpandirMotivo', !preferences.autoExpandirMotivo)}
             className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-              preferences.autoExpandirMotivo ? 'bg-blue-600' : 'bg-slate-800'
+              preferences.autoExpandirMotivo ? 'bg-indigo-600' : 'bg-white/[0.1]'
             }`}
           >
             <span
@@ -658,14 +665,14 @@ export default function SettingsTab({
 
         {/* Tamanho da Fonte */}
         <div>
-          <label className="block text-sm font-semibold text-slate-200 mb-2">
+          <label className="block text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
             Tamanho do Texto das Questões
           </label>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { id: 'normal', label: 'Normal (Padrão)', size: 'text-sm' },
-              { id: 'grande', label: 'Médio / Confortável', size: 'text-base' },
-              { id: 'extragrande', label: 'Grande (+ Leitura)', size: 'text-lg' }
+              { id: 'normal', label: 'Normal (Padrão)', size: 'text-xs sm:text-sm' },
+              { id: 'grande', label: 'Médio / Confortável', size: 'text-sm sm:text-base' },
+              { id: 'extragrande', label: 'Grande (+ Leitura)', size: 'text-base sm:text-lg' }
             ].map(f => (
               <button
                 key={f.id}
@@ -673,11 +680,11 @@ export default function SettingsTab({
                 onClick={() => handlePrefChange('tamanhoFonte', f.id)}
                 className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
                   preferences.tamanhoFonte === f.id
-                    ? 'bg-blue-600 border-blue-500 text-white font-semibold'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-indigo-600 border-indigo-500 text-white font-semibold'
+                    : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:border-white/[0.12] hover:text-slate-300'
                 }`}
               >
-                <div className={f.size}>{f.label}</div>
+                <div className={`${f.size} font-semibold`}>{f.label}</div>
               </button>
             ))}
           </div>
@@ -685,18 +692,18 @@ export default function SettingsTab({
       </div>
 
       {/* SEÇÃO 4: AÇÕES DO SISTEMA & RESET */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-6 sm:p-7 shadow-xl shadow-black/30 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h4 className="text-sm font-bold text-slate-200">Restaurar Padrões</h4>
-          <p className="text-xs text-slate-400">Volta para o <strong>Gemini 3.8 Flash</strong> e proporção 3:1 original.</p>
+          <h3 className="text-sm sm:text-base font-bold text-slate-200">Restaurar Padrões</h3>
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Volta para o <strong>Gemini 3.8 Flash</strong> e proporção 3:1 original.</p>
         </div>
 
         <button
           type="button"
           onClick={handleResetPreferences}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/[0.08] hover:bg-white/[0.04] text-slate-300 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
+          <RotateCcw className="w-4 h-4 text-indigo-400" />
           <span>Restaurar Padrão (Gemini 3.8 Flash)</span>
         </button>
       </div>

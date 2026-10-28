@@ -180,7 +180,7 @@ Elabore um DIAGNÓSTICO TÁTICO ESTRATÉGICO e DIRETO AO PONTO com:
 
   if (loading && !data) {
     return (
-      <div className="max-w-5xl mx-auto py-20 px-4 text-center">
+      <div className="max-w-5xl mx-auto py-16 px-4 text-center">
         <div className="w-10 h-10 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         <p className="text-sm text-slate-400">Carregando métricas do banco SQLite...</p>
       </div>
@@ -190,7 +190,7 @@ Elabore um DIAGNÓSTICO TÁTICO ESTRATÉGICO e DIRETO AO PONTO com:
   const hasData = data && data.global && data.global.totalQuestoes > 0;
 
   return (
-    <div className="max-w-5xl mx-auto py-10 sm:py-12 px-4 sm:px-6 space-y-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 w-full space-y-6">
       {/* Alerta de Feedback de Ação */}
       {actionFeedback && (
         <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center justify-between animate-in fade-in">
@@ -205,13 +205,13 @@ Elabore um DIAGNÓSTICO TÁTICO ESTRATÉGICO e DIRETO AO PONTO com:
       )}
 
       {/* Header com Navegação em Sub-Abas */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight flex items-center gap-3">
-            <BarChart3 className="w-7 h-7 text-indigo-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2.5">
+            <BarChart3 className="w-6 h-6 text-indigo-400" />
             <span>Desempenho & Evolução</span>
           </h1>
-          <p className="text-sm sm:text-base text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Métricas de acertos, tempo e repetição espaçada no SQLite
           </p>
         </div>

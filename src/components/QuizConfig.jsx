@@ -107,8 +107,8 @@ export default function QuizConfig({
   };
 
   return (
-    <div className="max-w-6xl mx-auto w-full my-auto px-4 sm:px-6">
-      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-5 sm:p-7 shadow-2xl shadow-black/40">
+    <div className="max-w-5xl mx-auto w-full my-auto px-4 sm:px-6">
+      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-6 sm:p-7 shadow-2xl shadow-black/40">
         {/* Cabeçalho Compacto e Elegante */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-white/[0.07]">
           <div>
@@ -120,14 +120,14 @@ export default function QuizConfig({
                 PMPE • AOCP
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
               Personalize matérias, quantidade e modo de resolução para seu treino
             </p>
           </div>
 
           {/* Badge de Questões Prontas */}
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-slate-300 shadow-sm">
-            <Database className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+            <Database className="w-4 h-4 text-emerald-400 flex-shrink-0" />
             <span>
               <strong className="text-emerald-400 font-bold">{totalLocalDisponivel} questões</strong> prontas no acervo
               {contagemData && !isTemaDefinido && (
@@ -146,7 +146,7 @@ export default function QuizConfig({
             {/* Disciplinas */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300">
                   Disciplinas do Edital
                 </label>
                 {/* Presets Rápidos */}
@@ -154,21 +154,21 @@ export default function QuizConfig({
                   <button
                     type="button"
                     onClick={() => setPreset('todas')}
-                    className="px-2.5 py-0.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-colors cursor-pointer"
                   >
                     Todas (6)
                   </button>
                   <button
                     type="button"
                     onClick={() => setPreset('bloco3')}
-                    className="px-2.5 py-0.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-colors cursor-pointer"
                   >
                     Direito
                   </button>
                   <button
                     type="button"
                     onClick={() => setPreset('bloco1')}
-                    className="px-2.5 py-0.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-colors cursor-pointer"
                   >
                     Gerais
                   </button>
@@ -196,7 +196,7 @@ export default function QuizConfig({
                         <span className="text-xs sm:text-sm font-semibold leading-tight block truncate">
                           {d.nome}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+                        <span className="text-xs text-slate-400 font-mono mt-0.5 block">
                           {count > 0 ? `${count} disponíveis` : 'Disponível com IA'}
                         </span>
                       </div>
@@ -215,7 +215,7 @@ export default function QuizConfig({
             {/* Assunto ou Tema com Chips */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300">
                   Assunto ou Tema <span className="text-slate-400 font-normal normal-case">(Opcional)</span>
                 </label>
                 {isTemaDefinido && (
@@ -230,13 +230,13 @@ export default function QuizConfig({
                 value={assunto}
                 onChange={(e) => setAssunto(e.target.value)}
                 placeholder="Ex: Artigo 5º, Crase, Negação lógica, Nassau..."
-                className="w-full bg-white/[0.02] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                className="w-full bg-white/[0.02] border border-white/[0.08] rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/20 transition-all"
               />
 
               {/* Chips Compactos */}
               {activeChips.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5 items-center">
-                  <span className="text-[11px] text-slate-500 mr-0.5">Sugestões:</span>
+                  <span className="text-xs text-slate-400 font-medium mr-1">Sugestões:</span>
                   {activeChips.map((chip) => {
                     const isCurrent = assunto.trim().toLowerCase() === chip.toLowerCase();
                     const chipCount = contagemData?.chipsCount?.[chip]?.total;
@@ -246,7 +246,7 @@ export default function QuizConfig({
                         key={chip}
                         type="button"
                         onClick={() => setAssunto(chip)}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all border cursor-pointer flex items-center gap-1 ${
+                        className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all border cursor-pointer flex items-center gap-1.5 ${
                           isCurrent
                             ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
                             : 'bg-white/[0.03] hover:bg-white/[0.06] text-slate-300 hover:text-white border-white/[0.06]'
@@ -254,7 +254,7 @@ export default function QuizConfig({
                       >
                         <span>{chip}</span>
                         {chipCount !== undefined && chipCount > 0 && (
-                          <span className={`text-[10px] px-1 rounded font-mono ${
+                          <span className={`text-xs px-1.5 py-0.2 rounded font-mono ${
                             isCurrent ? 'bg-indigo-700 text-indigo-100' : 'bg-white/[0.08] text-slate-400'
                           }`}>
                             {chipCount}
@@ -272,7 +272,7 @@ export default function QuizConfig({
           <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
             {/* Quantidade */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block mb-1.5">
+              <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 block mb-1.5">
                 Quantidade de Questões
               </label>
               <div className="flex gap-1.5">
@@ -295,7 +295,7 @@ export default function QuizConfig({
 
             {/* Modo de Resolução */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block mb-1.5">
+              <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 block mb-1.5">
                 Modo de Resolução
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -333,7 +333,7 @@ export default function QuizConfig({
 
             {/* Origem das Questões */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block mb-1.5">
+              <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 block mb-1.5">
                 Origem das Questões
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -350,7 +350,7 @@ export default function QuizConfig({
                     <Zap className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Acervo Local</span>
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
+                  <p className="text-xs text-slate-300 mt-0.5">
                     {totalLocalDisponivel} prontas • Offline
                   </p>
                 </button>
@@ -368,7 +368,7 @@ export default function QuizConfig({
                     <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                     <span>Gerar com IA</span>
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
+                  <p className="text-xs text-slate-300 mt-0.5">
                     Inéditas com Gemini
                   </p>
                 </button>

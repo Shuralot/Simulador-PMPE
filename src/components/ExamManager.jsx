@@ -234,7 +234,7 @@ export default function ExamManager({ exams, onRefreshExams }) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-6 sm:py-8 px-4 sm:px-6 w-full space-y-6">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 w-full space-y-6">
       {/* Header Padronizado */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
         <div>
@@ -242,13 +242,13 @@ export default function ExamManager({ exams, onRefreshExams }) {
             <Building2 className="w-6 h-6 text-indigo-400" />
             <span>Banco de Provas & Acervo Oficial</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Cadernos de provas reais salvos no SQLite com extração de itens e busca semântica
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-300 px-3.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-          <Database className="w-3.5 h-3.5 text-emerald-400" />
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-300 px-3.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+          <Database className="w-4 h-4 text-emerald-400" />
           <span><strong>{exams.length} provas</strong> cadastradas ({exams.filter(e => e.ativo).length} ativas)</span>
         </div>
       </div>
@@ -436,18 +436,18 @@ export default function ExamManager({ exams, onRefreshExams }) {
           <div className="mt-4 space-y-2.5 pt-4 border-t border-white/[0.06]">
             <div className="text-xs font-semibold text-slate-400 flex items-center justify-between">
               <span>Questões reais encontradas por proximidade:</span>
-              <span className="text-[11px] text-indigo-400 font-mono">cos(θ) decrescente</span>
+              <span className="text-xs text-indigo-400 font-mono">cos(θ) decrescente</span>
             </div>
 
             <div className="grid gap-2.5">
               {cossenoResults.map((item) => (
-                <div key={item.id} className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+                <div key={item.id} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="font-bold text-slate-200">
                         {item.prova_nome} • Questão {item.numero}
                       </span>
-                      <span className="text-[11px] px-2 py-0.2 rounded-full bg-white/[0.04] text-slate-300 border border-white/[0.06]">
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/[0.04] text-slate-300 border border-white/[0.06]">
                         {item.disciplina}
                       </span>
                     </div>
@@ -494,11 +494,11 @@ export default function ExamManager({ exams, onRefreshExams }) {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-slate-100 text-xs sm:text-sm">{exam.nome}</span>
-                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${getBancaBadgeColor(exam.banca)}`}>
+                    <span className={`text-xs uppercase font-bold px-2.5 py-0.5 rounded-full border ${getBancaBadgeColor(exam.banca)}`}>
                       {exam.banca}
                     </span>
                     {exam.is_padrao === 1 && (
-                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                      <span className="text-xs uppercase font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                         Oficial PMPE
                       </span>
                     )}

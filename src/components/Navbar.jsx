@@ -13,7 +13,7 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount, 
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#0b0f19]/90 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-18">
           {/* Brand */}
           <div className="flex items-center gap-3.5">
@@ -34,7 +34,7 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount, 
           </div>
 
           {/* Navigation - Segmented Pills */}
-          <nav className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/[0.04] border border-white/[0.08]">
+          <nav className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-2xl bg-white/[0.04] border border-white/[0.08]">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -43,7 +43,7 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount, 
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm sm:text-base font-medium transition-all duration-200 cursor-pointer relative ${
+                  className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-sm sm:text-base font-medium transition-all duration-200 cursor-pointer relative ${
                     isActive
                       ? 'bg-white/10 text-white shadow-md font-semibold'
                       : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'

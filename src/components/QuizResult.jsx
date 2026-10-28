@@ -63,7 +63,7 @@ export default function QuizResult({
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-10 sm:py-14 px-4 sm:px-6">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 w-full space-y-6">
       {/* Placar Principal Minimalista e Generoso */}
       <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-8 sm:p-12 shadow-2xl shadow-black/40 text-center mb-10">
         <div className="w-16 h-16 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mx-auto flex items-center justify-center mb-5">

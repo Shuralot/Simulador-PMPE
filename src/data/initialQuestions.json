@@ -1,0 +1,366 @@
+[
+  {
+    "disciplina": "Língua Portuguesa",
+    "assunto": "Crase",
+    "sub_topico": "Casos Proibitivos e Facultativos",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Média",
+    "enunciado": "Durante a elaboração do relatório policial, o soldado registrou o seguinte trecho: 'A guarnição dirigiu-se ___ delegacia de plantão disposta ___ prestar auxílio ___ todas as vítimas do ocorrido'. Assinale a alternativa que preenche correta e respectivamente as lacunas, de acordo com a norma-padrão quanto ao emprego do sinal indicativo de crase.",
+    "alternativas": {
+      "A": "à – a – a",
+      "B": "a – à – às",
+      "C": "à – à – a",
+      "D": "a – a – às",
+      "E": "à – a – às"
+    },
+    "gabarito": "A",
+    "dica": "Lembre-se: antes de verbo não ocorre crase e a palavra 'todas' é pronome indefinido que repele artigo.",
+    "explicacao": {
+      "por_que_correta": "1ª lacuna: o verbo 'dirigir-se' exige preposição 'a' e 'delegacia' admite artigo definido feminino 'a' (a + a = à). 2ª lacuna: antes do verbo 'prestar' não ocorre crase. 3ª lacuna: antes do pronome indefinido 'todas' não há artigo definido, ficando apenas a preposição 'a'.",
+      "distratores": {
+        "B": "Incorreta: 'dirigir-se' exige preposição, logo há crase na primeira lacuna; e colocou crase indevida antes de verbo.",
+        "C": "Incorreta: empregou acento grave indevidamente antes do verbo 'prestar'.",
+        "D": "Incorreta: omitiu a crase obrigatória na regência de 'dirigir-se a'.",
+        "E": "Incorreta: empregou crase antes de pronome indefinido plural sem artigo ('a todas')."
+      }
+    },
+    "palavras_chave": "crase, acento grave, regencia verbal, pronomes, preposicao"
+  },
+  {
+    "disciplina": "Língua Portuguesa",
+    "assunto": "Crase",
+    "sub_topico": "Casos Facultativos",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Fácil",
+    "enunciado": "No padrão da banca Instituto AOCP, assinale a alternativa em que o uso do sinal indicativo de crase é FACULTATIVO segundo a norma culta.",
+    "alternativas": {
+      "A": "O policial prestou esclarecimentos à sua comandante imediata.",
+      "B": "A viatura deslocou-se às pressas para conter o tumulto.",
+      "C": "O boletim de ocorrência foi entregue à juíza da comarca.",
+      "D": "Os agentes procederam à busca pessoal nos suspeitos.",
+      "E": "A equipe permaneceu atenta à medida que a multidão avançava."
+    },
+    "gabarito": "A",
+    "dica": "Lembre-se dos 3 casos facultativos clássicos: nomes próprios femininos, pronome possessivo feminino singular e após a preposição 'até'.",
+    "explicacao": {
+      "por_que_correta": "Antes de pronomes possessivos femininos no singular (como 'sua'), o artigo é facultativo, tornando o uso da crase facultativo ('a sua' ou 'à sua').",
+      "distratores": {
+        "B": "Incorreta: 'às pressas' é locução adverbial feminina de uso obrigatório da crase.",
+        "C": "Incorreta: 'entregue à juíza' possui crase obrigatória pela regência do adjetivo/particípio entregue + substantivo determinado.",
+        "D": "Incorreta: 'proceder à busca' exige preposição 'a' para coisa, logo a crase é obrigatória.",
+        "E": "Incorreta: 'à medida que' é locução conjuntiva proporcional feminina com crase obrigatória."
+      }
+    },
+    "palavras_chave": "crase facultativa, possessivo, norma padrao"
+  },
+  {
+    "disciplina": "Língua Portuguesa",
+    "assunto": "Concordância Verbal",
+    "sub_topico": "Voz Passiva Sintética e Sujeito Indeterminado",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Média",
+    "enunciado": "A partícula 'se' é amplamente explorada pela banca AOCP. Assinale a alternativa que apresenta concordância verbal plenamente CORRETA de acordo com a norma-padrão.",
+    "alternativas": {
+      "A": "Apurou-se com rigor as infrações disciplinares cometidas no batalhão.",
+      "B": "Apuraram-se com rigor as infrações disciplinares cometidas no batalhão.",
+      "C": "Necessitam-se de novos equipamentos de proteção individual para o pelotão.",
+      "D": "Tratam-se de denúncias anônimas recebidas pelo disque-denúncia.",
+      "E": "Fazem dez anos que a lei de segurança comunitária foi instituída."
+    },
+    "gabarito": "B",
+    "dica": "Verbo transitivo direto acompanhado de 'se' vira voz passiva sintética: o termo seguinte é sujeito paciente e concorda com o verbo.",
+    "explicacao": {
+      "por_que_correta": "'Apurar' é VTD; com o 'se' (pronome apassivador), 'as infrações disciplinares' funciona como sujeito paciente no plural, exigindo verbo no plural: 'Apuraram-se as infrações'.",
+      "distratores": {
+        "A": "Incorreta: o sujeito paciente 'as infrações disciplinares' está no plural, logo o verbo deve ir para o plural.",
+        "C": "Incorreta: 'necessitar' é VTI regido pela preposição 'de'. O 'se' é índice de indeterminação do sujeito e o verbo deve ficar no singular: 'Necessita-se'.",
+        "D": "Incorreta: 'tratar-se de' é VTI, o 'se' é índice de indeterminação, ficando invariavelmente no singular: 'Trata-se de'.",
+        "E": "Incorreta: o verbo 'fazer' indicando tempo decorrido é impessoal e não varia para o plural ('Faz dez anos')."
+      }
+    },
+    "palavras_chave": "concordancia verbal, particula se, voz passiva, sujeito indeterminado"
+  },
+  {
+    "disciplina": "Língua Portuguesa",
+    "assunto": "Pontuação",
+    "sub_topico": "Emprego da Vírgula",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Fácil",
+    "enunciado": "Quanto às normas de pontuação da língua escrita, assinale a opção em que o emprego da vírgula é PROIBIDO.",
+    "alternativas": {
+      "A": "Para isolar o adjunto adverbial de tempo deslocado no início da oração.",
+      "B": "Para separar orações coordenadas assindéticas.",
+      "C": "Para isolar o vocativo em uma comunicação formal.",
+      "D": "Entre o sujeito e o predicado da oração.",
+      "E": "Para separar o aposto explicativo do restante da sentença."
+    },
+    "gabarito": "D",
+    "dica": "Nunca se separa por vírgula os termos essenciais que compõem o nexo sintático direto (sujeito e predicado, verbo e objeto).",
+    "explicacao": {
+      "por_que_correta": "É regra elementar da pontuação que não se coloca vírgula separando o sujeito do seu respectivo predicado, nem o verbo de seus complementos diretos ou indiretos.",
+      "distratores": {
+        "A": "Incorreta: o isolamento do adjunto adverbial deslocado é plenamente admitido ou obrigatório se de grande extensão.",
+        "B": "Incorreta: orações coordenadas assindéticas devem ser separadas por vírgula.",
+        "C": "Incorreta: o vocativo deve sempre ser isolado por vírgula.",
+        "E": "Incorreta: o aposto explicativo vem obrigatoriamente entre vírgulas."
+      }
+    },
+    "palavras_chave": "pontuacao, virgula, sintaxe, sujeito e predicado"
+  },
+  {
+    "disciplina": "Raciocínio Lógico",
+    "assunto": "Tabela Verdade",
+    "sub_topico": "Negação de Proposições Compostas",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Média",
+    "enunciado": "Considere a proposição condicional: 'Se o policial militar estiver de serviço, então ele portará colete balístico'. Assinale a alternativa que apresenta a NEGAÇÃO LÓGICA correta dessa afirmação.",
+    "alternativas": {
+      "A": "Se o policial militar não estiver de serviço, então não portará colete balístico.",
+      "B": "O policial militar está de serviço e não porta colete balístico.",
+      "C": "O policial militar não está de serviço ou não porta colete balístico.",
+      "D": "Se o policial militar portar colete balístico, então estará de serviço.",
+      "E": "O policial militar não está de serviço e porta colete balístico."
+    },
+    "gabarito": "B",
+    "dica": "Aplique a regra do 'MANÉ': Mantém a primeira parte E Nega a segunda parte (p ∧ ~q).",
+    "explicacao": {
+      "por_que_correta": "A negação da condicional p → q é dada logicamente por p ∧ ~q. Portanto, mantém-se a primeira ('O policial militar está de serviço') e nega-se a segunda ('e não porta colete balístico').",
+      "distratores": {
+        "A": "Incorreta: essa é a inversa (~p → ~q), não a negação.",
+        "C": "Incorreta: utilizou a regra de equivalência e não a negação com conjunção.",
+        "D": "Incorreta: essa é a recíproca (q → p).",
+        "E": "Incorreta: negou a primeira e manteve a segunda, que é o inverso da regra MANÉ."
+      }
+    },
+    "palavras_chave": "rlm, tabela verdade, negacao condicional, logica de proposicoes"
+  },
+  {
+    "disciplina": "Raciocínio Lógico",
+    "assunto": "Equivalência Lógica",
+    "sub_topico": "Contrapositiva",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Fácil",
+    "enunciado": "Dada a proposição verdadeira: 'Se chove torrencialmente no Recife, o trânsito na Avenida Agamenon Magalhães fica congestionado', assinale a alternativa que expressa uma proposição logicamente EQUIVALENTE.",
+    "alternativas": {
+      "A": "Se o trânsito na Avenida Agamenon Magalhães não fica congestionado, então não chove torrencialmente no Recife.",
+      "B": "Se o trânsito na Avenida Agamenon Magalhães fica congestionado, então chove torrencialmente no Recife.",
+      "C": "Não chove torrencialmente no Recife e o trânsito fica congestionado.",
+      "D": "Chove torrencialmente no Recife ou o trânsito fica congestionado.",
+      "E": "Se não chove torrencialmente no Recife, então o trânsito não fica congestionado."
+    },
+    "gabarito": "A",
+    "dica": "A equivalência clássica do 'se... então' é a contrapositiva: inverte tudo negando (~q → ~p).",
+    "explicacao": {
+      "por_que_correta": "A contrapositiva da condicional p → q é ~q → ~p. Invertendo as proposições e negando ambas: 'Se o trânsito não fica congestionado, então não chove torrencialmente'.",
+      "distratores": {
+        "B": "Incorreta: apenas inverteu sem negar (recíproca), que não é equivalente.",
+        "C": "Incorreta: formulou uma conjunção que não preserva a tabela verdade.",
+        "D": "Incorreta: a equivalência disjuntiva seria ~p ∨ q ('Não chove OU fica congestionado').",
+        "E": "Incorreta: apenas negou sem inverter (inversa), falácia lógica comum."
+      }
+    },
+    "palavras_chave": "rlm, equivalencia logica, contrapositiva, condicional"
+  },
+  {
+    "disciplina": "Direito Constitucional",
+    "assunto": "Artigo 5º",
+    "sub_topico": "Inviolabilidade de Domicílio (Inciso XI)",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Média",
+    "enunciado": "A Constituição Federal de 1988 estabelece, no art. 5º, inciso XI, que 'a casa é asilo inviolável do indivíduo, ninguém nela podendo penetrar sem consentimento do morador'. De acordo com o texto constitucional, a entrada na residência por determinação JUDICIAL só pode ocorrer:",
+    "alternativas": {
+      "A": "A qualquer hora do dia ou da noite, desde que com mandado fundamentado.",
+      "B": "Durante o dia, com mandado judicial.",
+      "C": "Durante a noite, desde que acompanhado por oficial de justiça.",
+      "D": "Durante o dia ou à noite, em caso de flagrante delito exclusivamente.",
+      "E": "Apenas aos finais de semana e feriados mediante autorização do plantão judiciário."
+    },
+    "gabarito": "B",
+    "dica": "Lembre-se: flagrante delito, desastre ou socorro = a qualquer hora. Determinação judicial = APENAS DURANTE O DIA.",
+    "explicacao": {
+      "por_que_correta": "O art. 5º, XI, da CF/88 é taxativo: por determinação judicial, o ingresso no domicílio sem consentimento só é permitido durante o dia.",
+      "distratores": {
+        "A": "Incorreta: mandado judicial à noite é vedado pela Constituição.",
+        "C": "Incorreta: a presença de oficial de justiça não autoriza cumprimento de mandado domiciliar noturno.",
+        "D": "Incorreta: a determinação judicial tem limitação temporal diurna.",
+        "E": "Incorreta: alternativa sem qualquer amparo legal ou constitucional."
+      }
+    },
+    "palavras_chave": "direito constitucional, art 5, inviolabilidade domicilio, mandado judicial"
+  },
+  {
+    "disciplina": "Direito Constitucional",
+    "assunto": "Remédios Constitucionais",
+    "sub_topico": "Habeas Corpus e Mandado de Segurança",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Fácil",
+    "enunciado": "Assinale a alternativa que apresenta a ação constitucional cabível para proteger direito líquido e certo, não amparado por habeas corpus ou habeas data, quando o responsável pela ilegalidade ou abuso de poder for autoridade pública ou agente de pessoa jurídica no exercício de atribuições do Poder Público.",
+    "alternativas": {
+      "A": "Ação Popular.",
+      "B": "Mandado de Injunção.",
+      "C": "Mandado de Segurança.",
+      "D": "Habeas Data.",
+      "E": "Ação Civil Pública."
+    },
+    "gabarito": "C",
+    "dica": "O remédio constitucional de caráter residual para proteger direito líquido e certo é o Mandado de Segurança (art. 5º, LXIX).",
+    "explicacao": {
+      "por_que_correta": "Conforme o art. 5º, LXIX, da CF/88, conceder-se-á mandado de segurança para proteger direito líquido e certo, não amparado por 'habeas-corpus' ou 'habeas-data'.",
+      "distratores": {
+        "A": "Incorreta: ação popular visa anular ato lesivo ao patrimônio público, moralidade, meio ambiente ou patrimônio histórico.",
+        "B": "Incorreta: mandado de injunção cabe diante da falta de norma regulamentadora que inviabilize o exercício de direitos e liberdades constitucionais.",
+        "D": "Incorreta: habeas data visa assegurar conhecimento de informações pessoais em registros de entidades governamentais.",
+        "E": "Incorreta: ação civil pública é instrumento processual de tutela coletiva e difusa."
+      }
+    },
+    "palavras_chave": "constitucional, remedios constitucionais, mandado de seguranca, direito liquido e certo"
+  },
+  {
+    "disciplina": "Direito Constitucional",
+    "assunto": "Segurança Pública",
+    "sub_topico": "Artigo 144 - Competências das Polícias",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Fácil",
+    "enunciado": "Segundo o artigo 144 da Constituição Federal de 1988, à Polícia Militar incumbe expressamente:",
+    "alternativas": {
+      "A": "A polícia judiciária estadual e a apuração de infrações penais comuns.",
+      "B": "A polícia ostensiva e a preservação da ordem pública.",
+      "C": "O patrulhamento ostensivo das rodovias federais.",
+      "D": "A apuração de infrações penais contra a ordem política e social.",
+      "E": "A execução de atividades de defesa civil exclusivamente."
+    },
+    "gabarito": "B",
+    "dica": "Art. 144, § 5º da CF/88: 'às polícias militares cabem a polícia ostensiva e a preservação da ordem pública'.",
+    "explicacao": {
+      "por_que_correta": "O art. 144, § 5º da CF/88 define com clareza a missão constitucional das Polícias Militares: a polícia ostensiva e a preservação da ordem pública.",
+      "distratores": {
+        "A": "Incorreta: cabe à Polícia Civil a polícia judiciária e a apuração de infrações penais (ressalvada a militar).",
+        "C": "Incorreta: competência da Polícia Rodoviária Federal.",
+        "D": "Incorreta: competência da Polícia Federal.",
+        "E": "Incorreta: cabe aos Corpos de Bombeiros Militares as atividades de defesa civil."
+      }
+    },
+    "palavras_chave": "seguranca publica, art 144, policia militar, constituicao federal"
+  },
+  {
+    "disciplina": "História de Pernambuco",
+    "assunto": "Invasões Holandesas",
+    "sub_topico": "Governo de Maurício de Nassau",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Média",
+    "enunciado": "O período em que o Conde Maurício de Nassau governou a capitania de Pernambuco (1637–1644) durante o domínio da Companhia das Índias Ocidentais (WIC) notabilizou-se por medidas singulares no contexto colonial. Assinale a alternativa que reflete corretamente uma dessas medidas.",
+    "alternativas": {
+      "A": "A imediata proibição do cultivo de cana-de-açúcar para favorecer as manufaturas têxteis holandesas.",
+      "B": "A tolerância religiosa estendida a católicos, judeus e calvinistas, e concessão de créditos para reestruturar engenhos.",
+      "C": "A abolição irrestrita da escravidão africana em todas as cidades da capitania.",
+      "D": "A expulsão violenta de todos os proprietários luso-brasileiros das terras pernambucanas.",
+      "E": "O isolamento urbanístico de Recife e a transferência imediata da sede administrativa para Olinda."
+    },
+    "gabarito": "B",
+    "dica": "Nassau adotou uma política de conciliação: tolerância religiosa, urbanização de Recife (Mauritsstad) e empréstimos financeiros aos senhores de engenho.",
+    "explicacao": {
+      "por_que_correta": "Nassau implementou uma política conciliadora: concedeu tolerância de culto para católicos e judeus (com a fundação da Sinagoga Kahal Zur Israel no Recife) e financiou a recuperação dos engenhos de açúcar destruídos na guerra de conquista.",
+      "distratores": {
+        "A": "Incorreta: o açúcar era a principal fonte de riqueza da Companhia e foi amplamente incentivado.",
+        "C": "Incorreta: a economia açucareira continuou estritamente baseada no trabalho escravo africano.",
+        "D": "Incorreta: Nassau buscou aliança e pacificação com os senhores de engenho locais.",
+        "E": "Incorreta: Nassau urbanizou a Cidade Maurícia no Recife, drenando terrenos e construindo pontes, abandonando a destruída Olinda."
+      }
+    },
+    "palavras_chave": "historia de pernambuco, mauricio de nassau, holandeses, recife"
+  },
+  {
+    "disciplina": "História de Pernambuco",
+    "assunto": "Movimentos Revolucionários",
+    "sub_topico": "Revolução Praieira de 1848",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Média",
+    "enunciado": "A Revolução Praieira (1848–1850), última grande revolta do período imperial brasileiro, teve como base o Partido da Praia em Pernambuco. O documento programático dos revoltosos, conhecido como 'Manifesto ao Mundo', reivindicava expressamente:",
+    "alternativas": {
+      "A": "O voto censitário baseado na renda e a centralização do poder no Imperador.",
+      "B": "O voto livre e universal para o povo brasileiro e a nacionalização do comércio a retalho.",
+      "C": "A restauração imediata do domínio da coroa portuguesa sobre a província de Pernambuco.",
+      "D": "A entrega das capitanias do Nordeste à administração holandesa.",
+      "E": "A subordinação absoluta do poder eclesiástico aos latifundiários conservadores."
+    },
+    "gabarito": "B",
+    "dica": "O 'Manifesto ao Mundo' de Pedro Ivo e Borges da Fonseca pedia voto universal masculino, liberdade de imprensa, trabalho para todos e nacionalização do comércio.",
+    "explicacao": {
+      "por_que_correta": "O 'Manifesto ao Mundo' escrito em 1849 por Borges da Fonseca sintetizava ideais republicanos e socialistas utópicos da Primavera dos Povos: voto livre e universal, plena liberdade de imprensa e comércio a varejo exercido apenas por cidadãos brasileiros.",
+      "distratores": {
+        "A": "Incorreta: o voto censitário era o modelo monárquico vigente que os praieiros combatiam.",
+        "C": "Incorreta: o movimento era liberal e nacionalista, sem ligação com o retorno colonial.",
+        "D": "Incorreta: episódio ocorrido no século XIX, séculos após o domínio holandês.",
+        "E": "Incorreta: os liberais praieiros combatiam justamente o monopólio oligárquico dos 'gabirus' (conservadores)."
+      }
+    },
+    "palavras_chave": "historia de pernambuco, revolucao praieira, manifesto ao mundo, seculo xix"
+  },
+  {
+    "disciplina": "Informática",
+    "assunto": "Segurança da Informação",
+    "sub_topico": "Malware e Engenharia Social",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Fácil",
+    "enunciado": "Um policial militar recebeu um e-mail com aparência institucional informando que sua senha funcional expiraria em 24 horas, exigindo que ele clicasse em um link para recadastrar seus dados em uma página clonada. Esse tipo de ataque de engenharia social é denominado tecnicamente como:",
+    "alternativas": {
+      "A": "Ransomware.",
+      "B": "Phishing.",
+      "C": "Spyware.",
+      "D": "Firewall.",
+      "E": "Worm."
+    },
+    "gabarito": "B",
+    "dica": "Ataque que simula mensagens confiáveis para 'pescar' credenciais e dados sigilosos é o Phishing.",
+    "explicacao": {
+      "por_que_correta": "O Phishing é uma técnica de engenharia social por meio da qual criminosos enviam mensagens fraudulentas (e-mails, SMS, sites falsos) para induzir a vítima a fornecer senhas e dados confidenciais.",
+      "distratores": {
+        "A": "Incorreta: ransomware sequestra e criptografa arquivos exigindo resgate.",
+        "C": "Incorreta: spyware monitora em silêncio as ações do usuário.",
+        "D": "Incorreta: firewall é um dispositivo/sistema de segurança de rede e controle de tráfego.",
+        "E": "Incorreta: worm é um malware autorreplicável que se propaga por redes sem intervenção do usuário."
+      }
+    },
+    "palavras_chave": "informatica, seguranca da informacao, phishing, engenharia social"
+  },
+  {
+    "disciplina": "Legislação Extravagante",
+    "assunto": "Abuso de Autoridade",
+    "sub_topico": "Lei nº 13.869/2019",
+    "banca": "Instituto AOCP",
+    "tipo": "inedita",
+    "dificuldade": "Média",
+    "enunciado": "Nos termos da Lei nº 13.869/2019 (Nova Lei de Abuso de Autoridade), para que se configure crime de abuso de autoridade é indispensável que a conduta seja praticada pelo agente público com a finalidade específica de:",
+    "alternativas": {
+      "A": "Prejudicar outrem ou beneficiar a si mesmo ou a terceiro, ou, ainda, por mero capricho ou satisfação pessoal.",
+      "B": "Descumprir ordens superiores verbais ou por escrito emitidas pelo comando militar.",
+      "C": "Atuar em legítima defesa putativa decorrente de erro inescusável sobre elementos do tipo.",
+      "D": "Proferir sentença contrária a precedentes não sumulados de tribunais de justiça locais.",
+      "E": "Agir exclusivamente com dolo genérico, independentemente de motivação subjetiva especial."
+    },
+    "gabarito": "A",
+    "dica": "Art. 1º, § 1º da Lei 13.869/2019: exige o especial fim de agir (dolo específico de prejudicar outrem, beneficiar a si/terceiro ou por mero capricho/satisfação pessoal).",
+    "explicacao": {
+      "por_que_correta": "A Lei 13.869/2019 exige em seu art. 1º, § 1º a presença do especial fim de agir: 'prejudicar outrem ou beneficiar a si mesmo ou a terceiro, ou, ainda, por mero capricho ou satisfação pessoal'. A divergência na interpretação da lei não configura abuso.",
+      "distratores": {
+        "B": "Incorreta: descumprimento de ordem é infração disciplinar/militar, não a definição do elemento subjetivo do abuso.",
+        "C": "Incorreta: legítima defesa putativa é tema da parte geral do Código Penal sobre erro.",
+        "D": "Incorreta: o art. 1º, § 2º veda expressamente o chamado 'crime de hermenêutica'.",
+        "E": "Incorreta: a lei NÃO admite dolo genérico para abuso de autoridade."
+      }
+    },
+    "palavras_chave": "legislacao extravagante, abuso de autoridade, lei 13869, dolo especifico"
+  }
+]

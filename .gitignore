@@ -1,0 +1,29 @@
+# Dependências
+node_modules/
+
+# Produção / Builds
+dist/
+
+# Variáveis de ambiente & Chaves de API (Segurança Estrita)
+.env
+.env.*
+*.env
+
+# Arquivos temporários do SQLite WAL
+simulador.db-shm
+simulador.db-wal
+
+# Logs e depuração
+logs/
+*.log
+npm-debug.log*
+
+# Sistema e IDEs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.bak*
+*.tmp
+backups/
+_arquivo/

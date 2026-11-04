@@ -234,3 +234,16 @@ test('painel: prioriza pontos fracos com dados suficientes e separa dominados e 
   assert.ok(taxaSuavizada(0, 1) > 0.4);
   assert.equal(estadoDoTopico({ acertos: 0, total: 0, recentes: [] }), 'nao-praticado');
 });
+
+test('busca de questões parecidas: acha pelo termo nas alternativas e não devolve ruído', async () => {
+  const { buscarQuestoesParecidas } = await import('../lib/buscaProvas.mjs');
+  const qs = [
+    { id: 1, enunciado: 'Sobre o emprego do acento grave, assinale a correta.', alternativas: { A: 'o sinal indicativo de crase é facultativo diante de pronome possessivo', B: 'x' } },
+    { id: 2, enunciado: 'Analise as proposições lógicas a seguir.', alternativas: { A: 'verdadeira', B: 'falsa' } },
+    { id: 3, enunciado: 'A crase ocorre antes de palavras femininas.', alternativas: { A: 'sempre', B: 'nunca' } }
+  ];
+  const r = buscarQuestoesParecidas('crase facultativa', qs);
+  // a 1 casa os dois termos (facultativa ~ facultativo, nas alternativas); a 3 casa só "crase"; a 2 não tem relação
+  assert.deepEqual(r.map((x) => x.q.id), [1, 3]);
+  assert.deepEqual(buscarQuestoesParecidas('xyz qwerty', qs), []);
+});

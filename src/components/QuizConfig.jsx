@@ -127,8 +127,8 @@ export default function QuizConfig({
   };
 
   return (
-    <div className="max-w-4xl mx-auto w-full px-4 sm:px-6">
-      <form onSubmit={handleStart} className="max-w-2xl space-y-9 py-4">
+    <div className="max-w-2xl mx-auto w-full px-4 sm:px-6">
+      <form onSubmit={handleStart} className="space-y-9 py-4">
         <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Treinar</h1>
 
         {/* Matérias */}

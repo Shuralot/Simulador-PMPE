@@ -12,6 +12,7 @@ import { parseGabaritoTexto } from './lib/gabarito.mjs';
 import { chunkLei } from './lib/leis.mjs';
 import { hojeLocal, somarDiasLocal } from './lib/tempo.mjs';
 import { registrarRotasEstudo } from './routes/estudo.mjs';
+import { buscarQuestoesParecidas } from './lib/buscaProvas.mjs';
 import { registrarRotasPainel } from './routes/painel.mjs';
 import { registrarRotasVade } from './routes/vade.mjs';
 import { registrarRotasConfig } from './routes/config.mjs';
@@ -653,9 +654,9 @@ app.post('/api/provas/busca-cosseno', (req, res) => {
     }
 
     const candidates = db.prepare(sql).all(...params);
-    const ranked = rankCandidatesWithBM25AndMMR(query, candidates, Number(limite) || 6);
+    const achadas = buscarQuestoesParecidas(query, candidates, Number(limite) || 6);
 
-    const formatted = ranked.map(({ q, cosseno }) => ({
+    const formatted = achadas.map(({ q, alternativas, relevancia }) => ({
       id: q.id,
       numero: q.numero,
       disciplina: q.disciplina,
@@ -663,8 +664,9 @@ app.post('/api/provas/busca-cosseno', (req, res) => {
       banca: q.banca,
       ano: q.ano,
       enunciado: q.enunciado,
-      alternativas: typeof q.alternativas_json === 'string' ? JSON.parse(q.alternativas_json) : q.alternativas_json,
-      cosseno
+      alternativas,
+      gabarito: q.gabarito_oficial || null,
+      relevancia
     }));
 
     res.json({ questoes: formatted });

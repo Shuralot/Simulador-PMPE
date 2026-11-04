@@ -190,7 +190,7 @@ export default function VadeMecum() {
           </button>
         </form>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-3">
           <div className="flex flex-wrap gap-1.5">
             {DISCIPLINAS.map((d) => (
               <button
@@ -210,7 +210,7 @@ export default function VadeMecum() {
             value={fonteAtiva}
             onChange={(e) => e.target.value && abrirFonte(e.target.value)}
             aria-label="Ler uma fonte inteira"
-            className="max-w-full rounded-lg bg-white/[0.05] border border-white/[0.1] px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-400/70"
+            className="w-full rounded-xl bg-white/[0.05] border border-white/[0.1] px-4 py-2.5 text-base text-slate-200 focus:outline-none focus:border-indigo-400/70"
           >
             <option value="">Ler uma fonte inteira...</option>
             {fontesPorDisciplina.map(([disc, lista]) => (
@@ -223,7 +223,7 @@ export default function VadeMecum() {
       </div>
 
       {/* Conteúdo */}
-      <section className="max-w-3xl space-y-4 min-w-0">
+      <section className="space-y-4 min-w-0">
         {resultados !== null && (
           <>
             <p className="text-sm text-slate-400">
@@ -254,11 +254,11 @@ export default function VadeMecum() {
         )}
 
         {resultados === null && !fonteAtiva && (
-          <div className="py-8 space-y-4">
+          <div className="py-10 space-y-4 text-center">
             <p className="text-slate-400">
               {totalDispositivos} dispositivos em {fontes.length} fontes, sem precisar de internet. Experimente:
             </p>
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
               {ATALHOS.map((a) => (
                 <button
                   key={a.label}

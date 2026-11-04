@@ -45,8 +45,8 @@ export default function PlanoEstudo({ refreshKey }) {
   const pctMeta = Math.min(100, Math.round((respondidasHoje / metaDiaria) * 100));
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full mb-4">
-      <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 w-full mb-4">
+      <div>
         <button
           type="button"
           onClick={() => setAberto(!aberto)}

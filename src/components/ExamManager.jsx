@@ -63,6 +63,8 @@ export default function ExamManager({ exams, onRefreshExams }) {
   const [cossenoResults, setCossenoResults] = useState([]);
   const [cossenoSearching, setCossenoSearching] = useState(false);
   const [buscaAberta, setBuscaAberta] = useState(false);
+  const [cossenoBuscou, setCossenoBuscou] = useState(false);
+  const [cossenoAberta, setCossenoAberta] = useState(null);
 
   const handleImportarGabarito = async (provaId) => {
     try {
@@ -81,7 +83,8 @@ export default function ExamManager({ exams, onRefreshExams }) {
     setCossenoSearching(true);
     try {
       const res = await buscaCossenoProvas({ query: cossenoQuery.trim(), limite: 6 });
-      setCossenoResults(res.resultados || []);
+      setCossenoResults(res.questoes || []);
+      setCossenoBuscou(true);
     } catch (err) {
       console.error(err);
     } finally {
@@ -268,7 +271,7 @@ export default function ExamManager({ exams, onRefreshExams }) {
               <input
                 type="text"
                 value={cossenoQuery}
-                onChange={(e) => setCossenoQuery(e.target.value)}
+                onChange={(e) => { setCossenoQuery(e.target.value); setCossenoBuscou(false); }}
                 placeholder="crase facultativa, inviolabilidade do domicílio, negação..."
                 aria-label="Buscar questões parecidas"
                 className={campo}
@@ -282,16 +285,35 @@ export default function ExamManager({ exams, onRefreshExams }) {
               </button>
             </form>
 
+            {cossenoBuscou && cossenoResults.length === 0 && (
+              <p className="text-sm text-slate-500">Nenhuma questão parecida nas provas ativas. Tente outras palavras.</p>
+            )}
+
             {cossenoResults.length > 0 && (
               <ul className="divide-y divide-white/[0.06]">
-                {cossenoResults.map((item) => (
-                  <li key={item.id} className="py-4 space-y-1.5">
-                    <div className="text-sm text-slate-500">
-                      {item.prova_nome} · questão {item.numero} · {item.disciplina}
-                    </div>
-                    <p className="text-base text-slate-200 leading-relaxed">{item.enunciado}</p>
-                  </li>
-                ))}
+                {cossenoResults.map((item) => {
+                  const aberta = cossenoAberta === item.id;
+                  return (
+                    <li key={item.id} className="py-4 space-y-2">
+                      <div className="text-sm text-slate-500">
+                        {item.prova_nome} · questão {item.numero} · {item.disciplina}
+                      </div>
+                      <p className="text-base text-slate-200 leading-relaxed">{item.enunciado}</p>
+                      <button type="button" onClick={() => setCossenoAberta(aberta ? null : item.id)} className="text-sm text-indigo-300 hover:text-indigo-200 cursor-pointer">
+                        {aberta ? 'Ocultar alternativas' : 'Ver alternativas e gabarito'}
+                      </button>
+                      {aberta && (
+                        <ul className="space-y-1.5 text-base">
+                          {Object.entries(item.alternativas || {}).map(([letra, texto]) => (
+                            <li key={letra} className={letra === item.gabarito ? 'text-emerald-400' : 'text-slate-300'}>
+                              <strong className="font-semibold">{letra})</strong> {texto}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

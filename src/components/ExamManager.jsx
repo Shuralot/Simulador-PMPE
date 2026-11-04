@@ -1,17 +1,6 @@
 import React, { useState } from 'react';
-import { 
-  UploadCloud, 
-  Trash2, 
-  ToggleLeft, 
-  ToggleRight, 
-  FileText, 
-  CheckCircle2, 
-  AlertCircle, 
-  Sparkles,
-  Search,
-  Database,
-  Zap,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import Interruptor from './Interruptor';
 import { parsePdfFile } from '../utils/pdfParser';
 import { 
   addProva, 
@@ -73,6 +62,7 @@ export default function ExamManager({ exams, onRefreshExams }) {
   const [cossenoQuery, setCossenoQuery] = useState('');
   const [cossenoResults, setCossenoResults] = useState([]);
   const [cossenoSearching, setCossenoSearching] = useState(false);
+  const [buscaAberta, setBuscaAberta] = useState(false);
 
   const handleImportarGabarito = async (provaId) => {
     try {
@@ -171,350 +161,183 @@ export default function ExamManager({ exams, onRefreshExams }) {
     }
   };
 
-  const getBancaBadgeColor = (banca) => {
-    const b = (banca || '').toLowerCase();
-    if (b.includes('aocp')) return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30';
-    if (b.includes('cebraspe') || b.includes('cespe')) return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
-    if (b.includes('fgv')) return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-    if (b.includes('fcc')) return 'bg-sky-500/15 text-sky-300 border-sky-500/30';
-    return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-  };
+  const campo = 'w-full rounded-lg bg-white/[0.05] border border-white/[0.1] px-3 py-2 text-base text-slate-100 focus:outline-none focus:border-indigo-400/70';
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full space-y-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full space-y-10">
       <div className="space-y-2">
         <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Provas</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-slate-500">
           {exams.length} cadastradas, {exams.filter((e) => e.ativo).length} ativas. As questões extraídas daqui alimentam os treinos.
         </p>
       </div>
 
-      {/* Upload de Novo PDF */}
-      <div className="bg-white/[0.03] rounded-2xl p-5 sm:p-7">
-        <h2 className="text-sm sm:text-base font-bold text-slate-100 mb-1 flex items-center gap-2">
-          <UploadCloud className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
-          <span>Importar Nova Prova (PDF)</span>
-        </h2>
-        <p className="text-xs text-slate-400 mb-4">
-          O sistema extrai o texto e classifica as questões por disciplina do edital automaticamente.
-        </p>
+      {/* Lista */}
+      <section>
+        <ul className="divide-y divide-white/[0.06]">
+          {exams.map((exam) => {
+            const completa = exam.total_questoes > 0 && exam.total_gabaritadas >= exam.total_questoes;
+            return (
+              <li key={exam.id} className={`py-5 transition-opacity ${exam.ativo ? '' : 'opacity-50'}`}>
+                <div className="flex items-center gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-lg text-slate-100 truncate">{exam.nome}</div>
+                    <div className="text-sm text-slate-500 mt-0.5">
+                      {exam.banca} · {exam.orgao} · {exam.cargo} · {exam.ano} · {exam.total_questoes || 0} questões ·{' '}
+                      <span className={completa ? 'text-emerald-400' : 'text-amber-400'}>
+                        {exam.total_gabaritadas || 0}/{exam.total_questoes || 0} com gabarito
+                      </span>
+                    </div>
+                  </div>
 
-        <label className="border-2 border-dashed border-white/[0.1] hover:border-indigo-500/60 rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center cursor-pointer transition-colors bg-white/[0.01] hover:bg-white/[0.03] group">
-          <UploadCloud className="w-8 h-8 text-slate-500 group-hover:text-indigo-400 transition-colors mb-2" />
-          <span className="text-xs sm:text-sm font-semibold text-slate-200">
-            {uploading ? 'Extraindo questões e identificando banca...' : 'Clique para selecionar ou arraste uma prova em PDF'}
+                  <div className="flex items-center gap-5 shrink-0 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => { setGabaritoAberto(gabaritoAberto === exam.id ? null : exam.id); setGabaritoMsg(null); setGabaritoTexto(''); }}
+                      className="text-slate-400 hover:text-slate-100 cursor-pointer"
+                    >
+                      Gabarito
+                    </button>
+                    {!exam.is_padrao && (
+                      <button type="button" onClick={() => handleDelete(exam.id, exam.nome)} className="text-slate-500 hover:text-rose-400 cursor-pointer">
+                        Remover
+                      </button>
+                    )}
+                    <Interruptor ativo={!!exam.ativo} onChange={() => handleToggle(exam.id)} rotulo={exam.ativo ? `Desativar ${exam.nome}` : `Ativar ${exam.nome}`} />
+                  </div>
+                </div>
+
+                {gabaritoAberto === exam.id && (
+                  <div className="mt-4 space-y-3 max-w-2xl">
+                    <p className="text-sm text-slate-500">Cole o gabarito no formato <code className="text-slate-300">1-A 2-B 3-C...</code> ou JSON.</p>
+                    <textarea
+                      value={gabaritoTexto}
+                      onChange={(e) => setGabaritoTexto(e.target.value)}
+                      rows={3}
+                      className={`${campo} font-mono text-sm`}
+                    />
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleImportarGabarito(exam.id)}
+                        disabled={!gabaritoTexto.trim()}
+                        className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 text-white font-medium cursor-pointer"
+                      >
+                        Gravar gabarito
+                      </button>
+                      {gabaritoMsg && <span className={`text-sm ${gabaritoMsg.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>{gabaritoMsg.text}</span>}
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {/* Importar */}
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold text-slate-100">Importar prova</h2>
+        <label className="flex items-center justify-between gap-4 rounded-xl border border-dashed border-white/[0.15] hover:border-indigo-400/70 hover:bg-white/[0.02] px-5 py-5 cursor-pointer transition-colors">
+          <span>
+            <span className="block text-base text-slate-200">
+              {uploading ? 'Extraindo questões e identificando a banca...' : 'Escolher um PDF de prova'}
+            </span>
+            <span className="block text-sm text-slate-500 mt-0.5">As questões são extraídas e classificadas por matéria automaticamente.</span>
           </span>
-          <span className="text-xs text-slate-500 mt-1">
-            Suporta Instituto AOCP, PMPE, PMDF, PC-GO e outras carreiras
-          </span>
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={handleFileUpload}
-            disabled={uploading}
-            className="hidden"
-          />
+          <span className="shrink-0 px-4 py-2 rounded-lg bg-white/[0.08] text-slate-100 text-sm font-medium">Selecionar</span>
+          <input type="file" accept="application/pdf" onChange={handleFileUpload} disabled={uploading} className="hidden" />
         </label>
+        {statusMsg && <p className={`text-sm ${statusMsg.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>{statusMsg.text}</p>}
+      </section>
 
-        {statusMsg && (
-          <div
-            className={`mt-4 p-3 rounded-xl border flex items-center gap-2 text-xs sm:text-sm ${
-              statusMsg.type === 'success'
-                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
-            }`}
-          >
-            {statusMsg.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+      {/* Buscar questões parecidas */}
+      <section className="pt-6 border-t border-white/[0.06]">
+        <button
+          type="button"
+          onClick={() => setBuscaAberta(!buscaAberta)}
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 cursor-pointer"
+        >
+          Buscar questões parecidas nas provas
+          <ChevronDown className={`w-4 h-4 transition-transform ${buscaAberta ? 'rotate-180' : ''}`} />
+        </button>
+
+        {buscaAberta && (
+          <div className="mt-4 space-y-4">
+            <form onSubmit={handleCossenoSearch} className="flex gap-2">
+              <input
+                type="text"
+                value={cossenoQuery}
+                onChange={(e) => setCossenoQuery(e.target.value)}
+                placeholder="crase facultativa, inviolabilidade do domicílio, negação..."
+                aria-label="Buscar questões parecidas"
+                className={campo}
+              />
+              <button
+                type="submit"
+                disabled={cossenoSearching || !cossenoQuery.trim()}
+                className="px-5 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 text-white font-medium cursor-pointer whitespace-nowrap"
+              >
+                {cossenoSearching ? 'Buscando...' : 'Buscar'}
+              </button>
+            </form>
+
+            {cossenoResults.length > 0 && (
+              <ul className="divide-y divide-white/[0.06]">
+                {cossenoResults.map((item) => (
+                  <li key={item.id} className="py-4 space-y-1.5">
+                    <div className="text-sm text-slate-500">
+                      {item.prova_nome} · questão {item.numero} · {item.disciplina}
+                    </div>
+                    <p className="text-base text-slate-200 leading-relaxed">{item.enunciado}</p>
+                  </li>
+                ))}
+              </ul>
             )}
-            <span>{statusMsg.text}</span>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Modal de Confirmação da Prova Detectada */}
+      {/* Confirmação da prova detectada */}
       {pendingExam && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#121929] border border-white/[0.1] rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-3 pb-3 border-b border-white/[0.08]">
-              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-100 text-sm sm:text-base">Prova Identificada</h3>
-                <p className="text-xs text-slate-400">Confirme ou edite os dados antes de gravar no SQLite</p>
+          <div role="dialog" aria-modal="true" aria-label="Confirmar prova" className="bg-[#121929] border border-white/[0.1] rounded-2xl p-6 sm:p-7 max-w-lg w-full space-y-5">
+            <div>
+              <h3 className="text-xl font-semibold text-slate-100">Confirmar prova</h3>
+              <p className="text-sm text-slate-500 mt-1">Confira os dados detectados antes de gravar. {pendingExam.total_paginas} páginas, {(pendingExam.tamanho_caracteres / 1000).toFixed(0)}k caracteres.</p>
+            </div>
+
+            <div className="space-y-3 text-sm text-slate-400">
+              <label className="block">Título
+                <input type="text" value={pendingExam.nome} onChange={(e) => setPendingExam({ ...pendingExam, nome: e.target.value })} className={`${campo} mt-1`} />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">Banca
+                  <input type="text" value={pendingExam.banca} onChange={(e) => setPendingExam({ ...pendingExam, banca: e.target.value })} className={`${campo} mt-1`} />
+                </label>
+                <label className="block">Ano
+                  <input type="number" value={pendingExam.ano} onChange={(e) => setPendingExam({ ...pendingExam, ano: parseInt(e.target.value) || 2024 })} className={`${campo} mt-1`} />
+                </label>
+                <label className="block">Órgão
+                  <input type="text" value={pendingExam.orgao} onChange={(e) => setPendingExam({ ...pendingExam, orgao: e.target.value })} className={`${campo} mt-1`} />
+                </label>
+                <label className="block">Cargo
+                  <input type="text" value={pendingExam.cargo} onChange={(e) => setPendingExam({ ...pendingExam, cargo: e.target.value })} className={`${campo} mt-1`} />
+                </label>
               </div>
             </div>
 
-            <div className="space-y-3 text-xs sm:text-sm">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Título da Prova</label>
-                <input
-                  type="text"
-                  value={pendingExam.nome}
-                  onChange={(e) => setPendingExam({ ...pendingExam, nome: e.target.value })}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500/60"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Banca</label>
-                  <input
-                    type="text"
-                    value={pendingExam.banca}
-                    onChange={(e) => setPendingExam({ ...pendingExam, banca: e.target.value })}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500/60"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Ano</label>
-                  <input
-                    type="number"
-                    value={pendingExam.ano}
-                    onChange={(e) => setPendingExam({ ...pendingExam, ano: parseInt(e.target.value) || 2024 })}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500/60"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Órgão</label>
-                  <input
-                    type="text"
-                    value={pendingExam.orgao}
-                    onChange={(e) => setPendingExam({ ...pendingExam, orgao: e.target.value })}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500/60"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Cargo</label>
-                  <input
-                    type="text"
-                    value={pendingExam.cargo}
-                    onChange={(e) => setPendingExam({ ...pendingExam, cargo: e.target.value })}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500/60"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-xs text-slate-400 flex items-center justify-between">
-                <span>{pendingExam.total_paginas} páginas</span>
-                <span>{(pendingExam.tamanho_caracteres / 1000).toFixed(0)}k caracteres</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5 pt-2">
-              <button
-                onClick={handleConfirmAddExam}
-                className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm rounded-xl transition-colors cursor-pointer"
-              >
-                Gravar no Banco SQLite
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={handleConfirmAddExam} className="flex-1 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-medium cursor-pointer">
+                Gravar prova
               </button>
-              <button
-                onClick={() => setPendingExam(null)}
-                className="py-2.5 px-4 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 text-xs sm:text-sm rounded-xl transition-colors cursor-pointer"
-              >
+              <button type="button" onClick={() => setPendingExam(null)} className="px-5 py-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 cursor-pointer">
                 Cancelar
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Busca Semântica por Cosseno */}
-      <div className="bg-white/[0.03] rounded-3xl p-5 sm:p-7">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
-            <Zap className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-sm sm:text-base font-bold text-slate-100">
-              Busca Semântica por Cosseno nos PDFs (RAG Atômico)
-            </h2>
-            <p className="text-xs text-slate-400">
-              Calcule o ângulo vetorial cos(θ) entre qualquer termo e todas as questões das provas oficiais.
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={handleCossenoSearch} className="flex flex-col sm:flex-row gap-2 mt-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              value={cossenoQuery}
-              onChange={(e) => setCossenoQuery(e.target.value)}
-              placeholder="Digite um conceito (ex: crase facultativa, inviolabilidade domicílio, nassau, negação condicional)..."
-              className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-indigo-500/60"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={cossenoSearching || !cossenoQuery.trim()}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-          >
-            {cossenoSearching ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <span>Buscar por Similaridade</span>
-            )}
-          </button>
-        </form>
-
-        {/* Resultados */}
-        {cossenoResults.length > 0 && (
-          <div className="mt-4 space-y-2.5 pt-4 border-t border-white/[0.06]">
-            <div className="text-xs font-semibold text-slate-400 flex items-center justify-between">
-              <span>Questões reais encontradas por proximidade:</span>
-              <span className="text-xs text-indigo-400 font-mono">cos(θ) decrescente</span>
-            </div>
-
-            <div className="grid gap-2.5">
-              {cossenoResults.map((item) => (
-                <div key={item.id} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-bold text-slate-200">
-                        {item.prova_nome} • Questão {item.numero}
-                      </span>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/[0.04] text-slate-300 border border-white/[0.06]">
-                        {item.disciplina}
-                      </span>
-                    </div>
-                    <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
-                      cos(θ) = {item.cosseno}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-slate-300 leading-relaxed mb-2">
-                    {item.enunciado}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Lista de Provas no SQLite */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm sm:text-base font-bold text-slate-100">
-            Provas Gravadas no SQLite ({exams.length})
-          </h2>
-          <span className="text-xs text-slate-400 font-medium">
-            {exams.filter(e => e.ativo).length} ativas para geração
-          </span>
-        </div>
-
-        <div className="grid gap-2.5">
-          {exams.map((exam) => (
-            <div
-              key={exam.id}
-              className={`p-4 rounded-2xl border transition-all flex flex-wrap items-center justify-between gap-3 ${
-                exam.ativo
-                  ? 'bg-[#121929] border-white/[0.08]'
-                  : 'bg-white/[0.01] border-white/[0.04] opacity-50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl ${exam.ativo ? 'bg-indigo-500/15 text-indigo-400' : 'bg-white/[0.04] text-slate-500'}`}>
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-slate-100 text-xs sm:text-sm">{exam.nome}</span>
-                    <span className={`text-xs uppercase font-bold px-2.5 py-0.5 rounded-full border ${getBancaBadgeColor(exam.banca)}`}>
-                      {exam.banca}
-                    </span>
-                    {exam.is_padrao === 1 && (
-                      <span className="text-xs uppercase font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
-                        Oficial PMPE
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-1">
-                    <span>{exam.orgao} • {exam.cargo}</span>
-                    <span>•</span>
-                    <span>{exam.ano}</span>
-                    <span>•</span>
-                    <span className="text-emerald-400 font-medium flex items-center gap-1">
-                      <Database className="w-3 h-3" />
-                      {exam.total_questoes || 0} questões
-                    </span>
-                    <span>•</span>
-                    <span className={exam.total_gabaritadas >= exam.total_questoes && exam.total_questoes > 0 ? 'text-emerald-400' : 'text-amber-400'}>
-                      {exam.total_gabaritadas || 0}/{exam.total_questoes || 0} gabaritadas
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setGabaritoAberto(gabaritoAberto === exam.id ? null : exam.id); setGabaritoMsg(null); setGabaritoTexto(''); }}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-300 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl transition-colors cursor-pointer"
-                >
-                  Gabarito
-                </button>
-                <button
-                  onClick={() => handleToggle(exam.id)}
-                  title={exam.ativo ? 'Desativar prova' : 'Ativar prova'}
-                  className="p-1.5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-                >
-                  {exam.ativo ? (
-                    <ToggleRight className="w-6 h-6 text-emerald-400" />
-                  ) : (
-                    <ToggleLeft className="w-6 h-6 text-slate-600" />
-                  )}
-                </button>
-
-                {!exam.is_padrao && (
-                  <button
-                    onClick={() => handleDelete(exam.id, exam.nome)}
-                    title="Remover prova do SQLite"
-                    className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              {gabaritoAberto === exam.id && (
-                <div className="w-full mt-3 pt-3 border-t border-white/[0.06] space-y-2">
-                  <p className="text-xs text-slate-400">
-                    Cole o gabarito no formato <code>1-A 2-B 3-C...</code> ou JSON.
-                  </p>
-                  <textarea
-                    value={gabaritoTexto}
-                    onChange={(e) => setGabaritoTexto(e.target.value)}
-                    rows={3}
-                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500/60"
-                  />
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleImportarGabarito(exam.id)}
-                      disabled={!gabaritoTexto.trim()}
-                      className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg cursor-pointer"
-                    >
-                      Gravar Gabarito
-                    </button>
-                    {gabaritoMsg && (
-                      <span className={`text-xs ${gabaritoMsg.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>{gabaritoMsg.text}</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

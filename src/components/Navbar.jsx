@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, BookOpen, BarChart3, Library } from 'lucide-react';
 
 const PRINCIPAIS = [
-  { id: 'quiz', label: 'Treinar' },
-  { id: 'history', label: 'Desempenho' },
-  { id: 'vade', label: 'Vade Mecum' }
+  { id: 'quiz', label: 'Treinar', icone: BookOpen },
+  { id: 'history', label: 'Desempenho', icone: BarChart3 },
+  { id: 'vade', label: 'Vade Mecum', icone: Library }
 ];
 
 export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount }) {
@@ -31,6 +31,7 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount }
   const engrenagemAtiva = activeTab === 'exams' || activeTab === 'settings';
 
   return (
+    <>
     <header className="sticky top-0 z-40 bg-[#0b0f19]/90 backdrop-blur-md border-b border-white/[0.06]">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         <button type="button" onClick={() => irPara('quiz')} className="text-lg font-bold text-slate-100 tracking-tight cursor-pointer whitespace-nowrap">
@@ -38,19 +39,22 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount }
         </button>
 
         <nav className="flex items-center gap-1 sm:gap-2">
-          {PRINCIPAIS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => irPara(item.id)}
-              aria-current={activeTab === item.id ? 'page' : undefined}
-              className={`px-3 sm:px-4 py-2 text-base whitespace-nowrap rounded-lg transition-colors cursor-pointer ${
-                activeTab === item.id ? 'text-white font-semibold bg-white/[0.07]' : 'text-slate-400 hover:text-slate-100'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+          {/* Em telas grandes as seções ficam no cabeçalho; no celular vão para a barra inferior */}
+          <div className="hidden sm:flex items-center gap-2">
+            {PRINCIPAIS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => irPara(item.id)}
+                aria-current={activeTab === item.id ? 'page' : undefined}
+                className={`px-4 py-2 text-base whitespace-nowrap rounded-lg transition-colors cursor-pointer ${
+                  activeTab === item.id ? 'text-white font-semibold bg-white/[0.07]' : 'text-slate-400 hover:text-slate-100'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
 
           <div className="relative ml-1" ref={menuRef}>
             <button
@@ -81,5 +85,27 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount }
         </nav>
       </div>
     </header>
+
+    <nav aria-label="Seções" className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-[#0b0f19]/95 backdrop-blur-md border-t border-white/[0.08] pb-[env(safe-area-inset-bottom)]">
+      <div className="grid grid-cols-3">
+        {PRINCIPAIS.map((item) => {
+          const Icone = item.icone;
+          const ativo = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => irPara(item.id)}
+              aria-current={ativo ? 'page' : undefined}
+              className={`flex flex-col items-center gap-1 py-2.5 text-xs cursor-pointer ${ativo ? 'text-white font-semibold' : 'text-slate-400'}`}
+            >
+              <Icone className={`w-5 h-5 ${ativo ? 'text-indigo-400' : ''}`} />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+    </>
   );
 }

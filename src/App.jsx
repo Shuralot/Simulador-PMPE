@@ -350,7 +350,7 @@ export default function App() {
       />
 
       {/* Conteúdo Principal */}
-      <main className={`flex-1 flex flex-col py-6 sm:py-8`}>
+      <main className={`flex-1 flex flex-col py-6 sm:py-8 pb-24 sm:pb-8`}>
         {/* Notificação de Erro Global */}
         {errorMsg && (
           <div className="max-w-4xl mx-auto mb-4 px-4 sm:px-6 w-full">

@@ -334,8 +334,8 @@ export default function QuizRunner({
     <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full space-y-6 relative">
       {/* Top Bar Minimalista com Navegação Integrada na Barra de Progresso */}
       <div className="mb-6 sm:mb-8 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={onCancelQuiz}
               className="p-2 -ml-1 text-slate-400 hover:text-white rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer"
@@ -343,16 +343,16 @@ export default function QuizRunner({
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2 text-sm sm:text-base font-semibold text-slate-200">
-              <span>Questão {currentIndex + 1} de {total}</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-slate-400 font-normal truncate max-w-xs sm:max-w-md">
+            <div className="flex items-center gap-2 text-sm sm:text-base font-semibold text-slate-200 min-w-0">
+              <span className="whitespace-nowrap">Questão {currentIndex + 1} de {total}</span>
+              <span className="hidden sm:inline text-slate-600">•</span>
+              <span className="hidden sm:inline text-slate-400 font-normal truncate max-w-xs sm:max-w-md">
                 {currentQ.disciplina}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
             <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-300 font-mono bg-white/[0.03] px-3 py-1.5 rounded-xl border border-white/[0.06]">
               <Clock className="w-3.5 h-3.5 text-indigo-400" />
               <span>{formatTime(timerSeconds)}</span>
@@ -360,7 +360,7 @@ export default function QuizRunner({
 
             <button
               onClick={handleFinish}
-              className="text-xs sm:text-sm font-medium text-slate-400 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer"
+              className="text-sm font-medium text-slate-400 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer"
             >
               Finalizar
             </button>
@@ -439,15 +439,16 @@ export default function QuizRunner({
       <div 
         ref={questionCardRef}
         onMouseUp={handleTextSelection}
-        className="bg-[#121929] border border-white/[0.08] rounded-3xl p-6 sm:p-10 lg:p-12 shadow-2xl shadow-black/40 relative"
+        onTouchEnd={handleTextSelection}
+        className="bg-[#121929] border border-white/[0.08] rounded-2xl sm:rounded-3xl p-4 sm:p-10 lg:p-12 shadow-2xl shadow-black/40 relative"
       >
         {/* Metadados e Ferramentas Discretas */}
-        <div className="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-white/[0.06]">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-slate-400 min-w-0">
             <span className="font-medium text-indigo-400">
               {currentQ.assunto || 'Tópico Geral'}
             </span>
-            <span className="text-slate-600">•</span>
+            <span className="hidden sm:inline text-slate-600">•</span>
             <span>
               {currentQ.origem === 'REAL' ? (currentQ.fonte || 'Banca AOCP') : 'Inédita AOCP'}
             </span>
@@ -865,7 +866,7 @@ export default function QuizRunner({
       )}
 
       {/* Atalhos discretos */}
-      <p className="text-center text-xs text-slate-500 mt-4">
+      <p className="hidden sm:block text-center text-xs text-slate-500 mt-4">
         Atalhos: <kbd className="px-1 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-slate-300 font-mono">A-E</kbd> selecionar • <kbd className="px-1 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-slate-300 font-mono">Enter</kbd> validar • <kbd className="px-1 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-slate-300 font-mono">←</kbd> <kbd className="px-1 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-slate-300 font-mono">→</kbd> navegar
       </p>
     </div>

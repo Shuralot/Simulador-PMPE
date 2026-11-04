@@ -182,9 +182,9 @@ export default function ExamManager({ exams, onRefreshExams }) {
             const completa = exam.total_questoes > 0 && exam.total_gabaritadas >= exam.total_questoes;
             return (
               <li key={exam.id} className={`py-5 transition-opacity ${exam.ativo ? '' : 'opacity-50'}`}>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                   <div className="min-w-0 flex-1">
-                    <div className="text-lg text-slate-100 truncate">{exam.nome}</div>
+                    <div className="text-lg text-slate-100 sm:truncate">{exam.nome}</div>
                     <div className="text-sm text-slate-500 mt-0.5">
                       {exam.banca} · {exam.orgao} · {exam.cargo} · {exam.ano} · {exam.total_questoes || 0} questões ·{' '}
                       <span className={completa ? 'text-emerald-400' : 'text-amber-400'}>
@@ -193,7 +193,7 @@ export default function ExamManager({ exams, onRefreshExams }) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-5 shrink-0 text-sm">
+                  <div className="flex items-center justify-between sm:justify-end gap-5 shrink-0 text-sm">
                     <button
                       type="button"
                       onClick={() => { setGabaritoAberto(gabaritoAberto === exam.id ? null : exam.id); setGabaritoMsg(null); setGabaritoTexto(''); }}
@@ -241,14 +241,14 @@ export default function ExamManager({ exams, onRefreshExams }) {
       {/* Importar */}
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100">Importar prova</h2>
-        <label className="flex items-center justify-between gap-4 rounded-xl border border-dashed border-white/[0.15] hover:border-indigo-400/70 hover:bg-white/[0.02] px-5 py-5 cursor-pointer transition-colors">
+        <label className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-white/[0.15] hover:border-indigo-400/70 hover:bg-white/[0.02] px-5 py-5 cursor-pointer transition-colors">
           <span>
             <span className="block text-base text-slate-200">
               {uploading ? 'Extraindo questões e identificando a banca...' : 'Escolher um PDF de prova'}
             </span>
             <span className="block text-sm text-slate-500 mt-0.5">As questões são extraídas e classificadas por matéria automaticamente.</span>
           </span>
-          <span className="shrink-0 px-4 py-2 rounded-lg bg-white/[0.08] text-slate-100 text-sm font-medium">Selecionar</span>
+          <span className="shrink-0 self-start sm:self-auto px-4 py-2 rounded-lg bg-white/[0.08] text-slate-100 text-sm font-medium">Selecionar</span>
           <input type="file" accept="application/pdf" onChange={handleFileUpload} disabled={uploading} className="hidden" />
         </label>
         {statusMsg && <p className={`text-sm ${statusMsg.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>{statusMsg.text}</p>}

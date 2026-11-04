@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { buildTemaMatcher, parseTemaQuery } from './lib/temaMatcher.mjs';
 import { normalizeText, tokenizar, computeTFVector, calculateCosineSimilarity, vetorDe, construirIdf, rankCandidates, hashEnunciado } from './lib/texto.mjs';
@@ -27,6 +28,15 @@ const PORT = process.env.PORT || 3001;
 // Configurações do Express: o servidor é de uso pessoal, então só aceita origens locais
 const ORIGENS_LOCAIS = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 app.use(cors({ origin: (origin, cb) => cb(null, !origin || ORIGENS_LOCAIS.test(origin)) }));
+// Acesso remoto (ex.: túnel Cloudflare): com ACESSO_SENHA definida, tudo exige usuário "pmpe" e essa senha
+if (process.env.ACESSO_SENHA) {
+  const esperado = Buffer.from(`pmpe:${process.env.ACESSO_SENHA}`);
+  app.use((req, res, next) => {
+    const recebido = Buffer.from(Buffer.from((req.headers.authorization || '').replace(/^Basic /i, ''), 'base64').toString());
+    if (recebido.length === esperado.length && crypto.timingSafeEqual(recebido, esperado)) return next();
+    res.set('WWW-Authenticate', 'Basic realm="Simulador PMPE"').status(401).send('Acesso restrito');
+  });
+}
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 

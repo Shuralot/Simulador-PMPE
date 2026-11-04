@@ -19,11 +19,11 @@ export function NotasItem({ item, tipos, onSalvo }) {
   };
 
   return (
-    <div className="pt-3 border-t border-white/[0.06] space-y-2">
+    <div className="space-y-2">
       <select
         value={tipo}
         onChange={(e) => { setTipo(e.target.value); setEstado(''); }}
-        className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.1] text-xs text-slate-200"
+        className="w-full rounded-lg bg-white/[0.05] border border-white/[0.1] px-3 py-2 text-base text-slate-200"
       >
         <option value="">Por que errei? (tipo de armadilha)</option>
         {tipos.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -34,10 +34,10 @@ export function NotasItem({ item, tipos, onSalvo }) {
         maxLength={2000}
         rows={2}
         placeholder="Minha anotação: errei porque confundi X com Y..."
-        className="w-full px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.1] text-xs sm:text-sm text-slate-100 placeholder:text-slate-500"
+        className="w-full px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.1] text-base text-slate-100 placeholder:text-slate-500"
       />
       <div className="flex items-center gap-3 text-xs">
-        <button type="button" onClick={salvar} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer">Salvar anotação</button>
+        <button type="button" onClick={salvar} className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-medium cursor-pointer">Salvar anotação</button>
         {estado === 'salvando' && <span className="text-slate-400">Salvando...</span>}
         {estado === 'salvo' && <span className="text-emerald-400">Salvo</span>}
         {estado === 'erro' && <span className="text-rose-400">Falha ao salvar</span>}
@@ -51,10 +51,10 @@ export function ResumoArmadilhas({ armadilhas }) {
   if (!armadilhas || armadilhas.length === 0) return null;
   const maximo = Math.max(...armadilhas.map((a) => a.total));
   return (
-    <div className="p-5 rounded-2xl bg-white/[0.03] space-y-2.5">
-      <h3 className="text-sm font-bold text-slate-100">Por que você erra</h3>
+    <div className="space-y-3">
+      <h3 className="text-xl font-semibold text-slate-100">Por que você erra</h3>
       {armadilhas.map((a) => (
-        <div key={a.tipo} className="text-xs text-slate-300">
+        <div key={a.tipo} className="text-sm text-slate-300">
           <div className="flex justify-between mb-1"><span>{a.tipo}</span><span className="font-mono">{a.total}</span></div>
           <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden"><div className="h-full bg-rose-500" style={{ width: `${(a.total / maximo) * 100}%` }} /></div>
         </div>

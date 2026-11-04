@@ -1,108 +1,89 @@
 import React, { useState } from 'react';
-import { Brain, CheckCircle2 } from 'lucide-react';
 import { NotasItem, ResumoArmadilhas, imprimirCaderno } from './CadernoExtras';
 import LegalReferencePanel from './LegalReferencePanel';
 
-// Sub-aba "Caderno de Erros" (Sistema Leitner) do painel de Desempenho
+// Caderno de erros: questões que você errou, na hora de rever (repetição espaçada em caixas de Leitner)
 export default function CadernoTab({ caderno, planoCaderno, onRevisar, onStartCadernoQuiz, onNotasSalvas }) {
-  const [revealedAnswers, setRevealedAnswers] = useState({});
+  const [reveladas, setReveladas] = useState({});
+  const [notasAbertas, setNotasAbertas] = useState({});
+  const alternar = (setter, id) => setter((p) => ({ ...p, [id]: !p[id] }));
+
+  if (caderno.length === 0) {
+    return <p className="py-12 text-slate-400">Nenhuma questão pendente no caderno de erros. Quando você errar uma questão, ela volta aqui para ser revista.</p>;
+  }
 
   return (
-    <div className="space-y-5">
-      <div className="p-6 sm:p-8 rounded-3xl bg-white/[0.03] flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg sm:text-xl font-bold text-slate-100 flex items-center gap-2.5">
-            <Brain className="w-6 h-6 text-rose-400" />
-            <span>Caderno de Erros (Sistema Leitner)</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Repetição espaçada com base na Curva do Esquecimento. Ao acertar, a questão avança de caixa e se consolida.
-          </p>
-        </div>
-
-        {caderno.length > 0 && (
-          <button
-            onClick={() => imprimirCaderno(caderno)}
-            className="px-5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
-          >
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500 max-w-xl">
+          Ao acertar, a questão avança de caixa e volta mais tarde (1, 3, 7, 15 dias). Ao errar, volta para a caixa 1.
+        </p>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => imprimirCaderno(caderno)} className="px-4 py-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-sm cursor-pointer">
             Imprimir / PDF
           </button>
-        )}
-
-        {onStartCadernoQuiz && caderno.length > 0 && (
-          <button
-            onClick={() => onStartCadernoQuiz(caderno.slice(0, 15))}
-            className="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer"
-          >
-            Revisar no Simulado ({Math.min(15, caderno.length)})
-          </button>
-        )}
+          {onStartCadernoQuiz && (
+            <button type="button" onClick={() => onStartCadernoQuiz(caderno.slice(0, 15))} className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-medium cursor-pointer">
+              Revisar {Math.min(15, caderno.length)} agora
+            </button>
+          )}
+        </div>
       </div>
 
       <ResumoArmadilhas armadilhas={planoCaderno.armadilhas} />
 
-      {caderno.length === 0 ? (
-        <div className="p-10 rounded-3xl bg-white/[0.03] text-center">
-          <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-80" />
-          <p className="text-sm text-slate-400">Nenhuma questão pendente no caderno de erros!</p>
-        </div>
-      ) : (
-        <div className="space-y-3.5">
-          {caderno.map((q) => {
-            const isRevealed = revealedAnswers[q.id];
-            return (
-              <div key={q.id} className="p-6 rounded-2xl bg-white/[0.03] space-y-3.5">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-bold text-rose-400">Caixa Leitner {q.caixa_leitner}</span>
-                    <span className="text-slate-600">•</span>
-                    <span className="text-slate-300 font-medium">{q.disciplina}</span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-xs">
-                    {q.total_acertos} acertos / {q.total_tentativas} tentativas
-                  </span>
-                </div>
-
-                <p className="text-sm sm:text-base text-slate-100 leading-relaxed font-medium">{q.enunciado}</p>
-
-                <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
-                  <button
-                    onClick={() => setRevealedAnswers(p => ({ ...p, [q.id]: !p[q.id] }))}
-                    className="text-xs sm:text-sm text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
-                  >
-                    {isRevealed ? 'Ocultar Gabarito' : 'Revelar Gabarito'}
-                  </button>
-
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      onClick={() => onRevisar(q.id, false)}
-                      className="px-3 py-1.5 rounded-xl bg-rose-500/15 text-rose-300 text-xs sm:text-sm font-semibold cursor-pointer hover:bg-rose-500/25"
-                    >
-                      Errei
-                    </button>
-                    <button
-                      onClick={() => onRevisar(q.id, true)}
-                      className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs sm:text-sm font-semibold cursor-pointer hover:bg-emerald-500/30"
-                    >
-                      Acertei
-                    </button>
-                  </div>
-                </div>
-
-                <NotasItem item={q} tipos={planoCaderno.tiposArmadilha} onSalvo={onNotasSalvas} />
-
-                {isRevealed && (
-                  <div className="mt-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-sm text-slate-200 space-y-2">
-                    <div className="text-emerald-400 font-bold">Gabarito: Letra ({q.gabarito})</div>
-                    <p>{q.explicacao?.correta}</p>
-                    <LegalReferencePanel question={q} />
-                  </div>
-                )}
+      <ul className="divide-y divide-white/[0.06]">
+        {caderno.map((q) => {
+          const revelada = reveladas[q.id];
+          const notaAberta = notasAbertas[q.id] || q.anotacao || q.tipo_armadilha;
+          return (
+            <li key={q.id} className="py-6 space-y-4">
+              <div className="text-sm text-slate-500">
+                {q.disciplina}{q.topico ? ` · ${q.topico}` : ''} · caixa {q.caixa_leitner} · {q.total_acertos} acertos em {q.total_tentativas} tentativas
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              <p className="text-base text-slate-100 leading-relaxed">{q.enunciado}</p>
+
+              {Array.isArray(q.alternativas) && q.alternativas.length > 0 && (
+                <ul className="space-y-2">
+                  {q.alternativas.map((a) => (
+                    <li key={a.letra} className={`text-base leading-relaxed ${revelada && a.letra === q.gabarito ? 'text-emerald-400' : 'text-slate-300'}`}>
+                      <strong className="font-semibold">{a.letra})</strong> {a.texto}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                <button type="button" onClick={() => alternar(setReveladas, q.id)} className="text-sm text-indigo-300 hover:text-indigo-200 cursor-pointer">
+                  {revelada ? 'Ocultar gabarito' : 'Ver gabarito'}
+                </button>
+                <button type="button" onClick={() => alternar(setNotasAbertas, q.id)} className="text-sm text-slate-400 hover:text-slate-200 cursor-pointer">
+                  {q.anotacao || q.tipo_armadilha ? 'Minha anotação' : 'Anotar'}
+                </button>
+                <span className="flex items-center gap-2 ml-auto">
+                  <button type="button" onClick={() => onRevisar(q.id, false)} className="px-4 py-2 rounded-lg bg-rose-500/15 text-rose-300 text-sm font-medium hover:bg-rose-500/25 cursor-pointer">
+                    Errei
+                  </button>
+                  <button type="button" onClick={() => onRevisar(q.id, true)} className="px-4 py-2 rounded-lg bg-emerald-500/15 text-emerald-300 text-sm font-medium hover:bg-emerald-500/25 cursor-pointer">
+                    Acertei
+                  </button>
+                </span>
+              </div>
+
+              {revelada && (
+                <div className="space-y-2 text-base text-slate-200">
+                  <div className="text-emerald-400 font-semibold">Gabarito: {q.gabarito}</div>
+                  {q.explicacao?.correta && <p className="leading-relaxed">{q.explicacao.correta}</p>}
+                  <LegalReferencePanel question={q} />
+                </div>
+              )}
+
+              {notaAberta && <NotasItem item={q} tipos={planoCaderno.tiposArmadilha} onSalvo={onNotasSalvas} />}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

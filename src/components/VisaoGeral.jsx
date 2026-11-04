@@ -82,7 +82,7 @@ export default function VisaoGeral({ onTreinarTopico, onStartCadernoQuiz }) {
   const maiorDia = Math.max(1, ...dias.map((d) => d.total));
 
   return (
-    <div className="space-y-14">
+    <div className="space-y-10 sm:space-y-14">
       {/* Números principais */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
         <Numero
@@ -103,21 +103,23 @@ export default function VisaoGeral({ onTreinarTopico, onStartCadernoQuiz }) {
         ) : (
           <ul className="divide-y divide-white/[0.06]">
             {atacar.map((t) => (
-              <li key={t.disciplina + t.topico} className="py-4 flex items-center gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="text-base text-slate-100 truncate">{t.topico}</div>
-                  <div className="text-sm text-slate-500 truncate">
+              <li key={t.disciplina + t.topico} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <div className="min-w-0 sm:flex-1">
+                  <div className="text-base text-slate-100 sm:truncate">{t.topico}</div>
+                  <div className="text-sm text-slate-500 sm:truncate">
                     {t.disciplina}
                     {t.vencidasCaderno > 0 && ` · ${t.vencidasCaderno} no caderno para hoje`}
                   </div>
                 </div>
-                <div className="w-28 shrink-0 text-right">
-                  <div className="text-base text-slate-100 font-mono">{Math.round(t.taxa)}%</div>
-                  <div className="text-sm text-slate-500">{t.acertos} de {t.total}</div>
+                <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                  <div className="sm:w-24 sm:text-right">
+                    <span className="text-base text-slate-100 font-mono">{Math.round(t.taxa)}%</span>
+                    <span className="text-sm text-slate-500"> · {t.acertos} de {t.total}</span>
+                  </div>
+                  <button type="button" onClick={() => onTreinarTopico(t.disciplina, t.topico)} className="px-4 py-2 sm:px-3.5 sm:py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-medium cursor-pointer">
+                    Treinar
+                  </button>
                 </div>
-                <button type="button" onClick={() => onTreinarTopico(t.disciplina, t.topico)} className="shrink-0 px-3.5 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-medium cursor-pointer">
-                  Treinar
-                </button>
               </li>
             ))}
           </ul>
@@ -171,16 +173,16 @@ export default function VisaoGeral({ onTreinarTopico, onStartCadernoQuiz }) {
                   type="button"
                   onClick={() => setAberta(aberto ? '' : d.disciplina)}
                   aria-expanded={aberto}
-                  className="w-full py-4 flex items-center gap-4 text-left cursor-pointer"
+                  className="w-full py-4 flex items-center gap-3 sm:gap-4 text-left cursor-pointer"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-base text-slate-100 truncate">{d.disciplina}</div>
+                    <div className="text-base text-slate-100 sm:truncate">{d.disciplina}</div>
                     <div className="text-sm text-slate-500">
                       {d.total > 0 ? `${d.total} questões` : 'sem questões'} · {d.topicosPraticados}/{d.topicosTotal} tópicos praticados
                       {d.vencidasCaderno > 0 && ` · ${d.vencidasCaderno} revisões hoje`}
                     </div>
                   </div>
-                  <div className="w-32 sm:w-48 shrink-0 space-y-1.5">
+                  <div className="w-16 sm:w-48 shrink-0 space-y-1.5">
                     <div className="text-right text-base font-mono text-slate-100">{d.taxa === null ? '—' : `${Math.round(d.taxa)}%`}</div>
                     <Barra valor={d.taxa} />
                   </div>
@@ -192,13 +194,15 @@ export default function VisaoGeral({ onTreinarTopico, onStartCadernoQuiz }) {
                     {d.topicos.map((t) => {
                       const estado = ESTADOS[t.estado];
                       return (
-                        <li key={t.topico} className="flex items-center gap-3 py-1.5 text-sm">
-                          <span className="min-w-0 flex-1 truncate text-slate-300">{t.topico}</span>
-                          <span className={`w-28 shrink-0 ${estado.cor}`}>{estado.rotulo}</span>
-                          <span className="w-24 shrink-0 text-right font-mono text-slate-400">{t.total > 0 ? `${Math.round(t.taxa)}% · ${t.total}` : '—'}</span>
-                          <button type="button" onClick={() => onTreinarTopico(d.disciplina, t.topico)} className="shrink-0 text-indigo-300 hover:text-indigo-200 cursor-pointer">
-                            Treinar
-                          </button>
+                        <li key={t.topico} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 py-2 text-sm">
+                          <span className="min-w-0 sm:flex-1 sm:truncate text-slate-300">{t.topico}</span>
+                          <span className="flex items-center gap-3">
+                            <span className={`sm:w-28 shrink-0 ${estado.cor}`}>{estado.rotulo}</span>
+                            <span className="sm:w-24 shrink-0 sm:text-right font-mono text-slate-400">{t.total > 0 ? `${Math.round(t.taxa)}% · ${t.total}` : '—'}</span>
+                            <button type="button" onClick={() => onTreinarTopico(d.disciplina, t.topico)} className="ml-auto sm:ml-0 shrink-0 py-1 text-indigo-300 hover:text-indigo-200 cursor-pointer">
+                              Treinar
+                            </button>
+                          </span>
                         </li>
                       );
                     })}

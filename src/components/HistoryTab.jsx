@@ -536,55 +536,39 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
         </div>
       )}
 
-      {/* Header com Navegação em Sub-Abas */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2.5">
-            <BarChart3 className="w-6 h-6 text-indigo-400" />
-            <span>Desempenho & Evolução</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Métricas de acertos, tempo e repetição espaçada no SQLite
-          </p>
-        </div>
+      {/* Cabeçalho e sub-abas */}
+      <div className="space-y-6">
+        <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Desempenho</h1>
 
-        {/* Sub-abas Principais */}
-        <div className="flex items-center gap-1.5 p-1.5 bg-white/[0.03] border border-white/[0.08] rounded-2xl">
+        <div className="flex items-center gap-6 border-b border-white/[0.06]">
           <button
             onClick={() => setActiveSubTab('kpis')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              activeSubTab === 'kpis' ? 'bg-white/10 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+            className={`pb-2 text-base border-b-2 transition-colors cursor-pointer ${
+              activeSubTab === 'kpis' ? 'border-indigo-400 text-white font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            Dashboard
+            Visão geral
           </button>
-
           <button
             onClick={() => setActiveSubTab('erros')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
-              activeSubTab === 'erros' ? 'bg-rose-500/20 text-rose-300 shadow-md' : 'text-slate-400 hover:text-slate-200'
+            className={`pb-2 text-base border-b-2 transition-colors cursor-pointer ${
+              activeSubTab === 'erros' ? 'border-indigo-400 text-white font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <span>Caderno de Erros</span>
+            Caderno de erros
             {data?.cadernoErros?.total_pendentes > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-xs bg-rose-500 text-white font-bold">
-                {data.cadernoErros.total_pendentes}
-              </span>
+              <span className="ml-2 text-sm text-slate-400 font-normal">{data.cadernoErros.total_pendentes}</span>
             )}
           </button>
-
           <button
             onClick={() => setActiveSubTab('simulados')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
-              activeSubTab === 'simulados' ? 'bg-indigo-600/30 text-indigo-300 shadow-md' : 'text-slate-400 hover:text-slate-200'
+            className={`pb-2 text-base border-b-2 transition-colors cursor-pointer ${
+              activeSubTab === 'simulados' ? 'border-indigo-400 text-white font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <History className="w-4 h-4" />
-            <span>Gerenciar Testes</span>
+            Testes
             {simulados.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-xs bg-white/[0.08] text-slate-200 font-mono font-bold">
-                {simulados.length}
-              </span>
+              <span className="ml-2 text-sm text-slate-400 font-normal">{simulados.length}</span>
             )}
           </button>
         </div>
@@ -593,7 +577,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
       {/* SUB-ABA: GERENCIAR TESTES */}
       {activeSubTab === 'simulados' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08]">
+          <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-white/[0.03]">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2.5">
                 <History className="w-5 h-5 text-indigo-400" />
@@ -619,7 +603,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
           {loadingSimulados ? (
             <div className="py-16 text-center text-sm text-slate-400">Carregando lista de simulados...</div>
           ) : simulados.length === 0 ? (
-            <div className="p-10 rounded-3xl bg-[#121929] border border-white/[0.08] text-center">
+            <div className="p-10 rounded-3xl bg-white/[0.03] text-center">
               <History className="w-10 h-10 text-slate-600 mx-auto mb-3" />
               <p className="text-sm text-slate-400">Nenhum simulado salvo no banco de dados.</p>
             </div>
@@ -633,7 +617,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                 return (
                   <div
                     key={sim.id}
-                    className="p-5 sm:p-6 rounded-2xl bg-[#121929] border border-white/[0.08] hover:border-white/[0.16] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="p-5 sm:p-6 rounded-2xl bg-white/[0.03] hover:border-white/[0.16] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2.5 mb-1.5">
@@ -709,7 +693,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
       {activeSubTab === 'kpis' && (
         <div className="space-y-6">
           {/* BARRA DE ESCOPOS & FILTROS (MINIMALISTA) */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-[#121929] border border-white/[0.08] space-y-3.5">
+          <div className="p-4 sm:p-5 rounded-3xl bg-white/[0.03] space-y-3.5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               {/* Seletor de Escopo */}
               <div className="flex flex-wrap items-center gap-1.5">
@@ -731,7 +715,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                       : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
                   }`}
                 >
-                  🌐 Geral (Global)
+                  Geral (Global)
                 </button>
 
                 <button
@@ -747,7 +731,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                       : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
                   }`}
                 >
-                  📝 Teste Individual
+                  Teste Individual
                 </button>
 
                 <button
@@ -763,7 +747,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                       : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
                   }`}
                 >
-                  📚 Por Matéria
+                  Por Matéria
                 </button>
 
                 <button
@@ -780,7 +764,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                       : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
                   }`}
                 >
-                  🎯 Por Assunto
+                  Por Assunto
                 </button>
               </div>
 
@@ -873,11 +857,11 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
           </div>
 
           {!hasData ? (
-            <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-14 text-center max-w-xl mx-auto">
+            <div className="bg-white/[0.03] rounded-3xl p-14 text-center max-w-xl mx-auto">
               <Target className="w-14 h-14 text-indigo-400 mx-auto mb-4 opacity-80" />
               <h2 className="text-xl font-bold text-slate-100 mb-2">Nenhum dado encontrado para este filtro</h2>
               <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-                Tente selecionar outro simulado, matéria ou volte para o filtro &quot;🌐 Geral&quot;.
+                Tente selecionar outro simulado, matéria ou volte para o filtro &quot;Geral&quot;.
               </p>
               <button
                 onClick={() => {
@@ -906,7 +890,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                       ? `Com ${data.global.taxaGeral}% de acertos nesta seleção (${data.global.totalAcertos}/${data.global.totalQuestoes}), você está acima da nota de corte projetada (75%) da banca AOCP.`
                       : `Com ${data.global.taxaGeral}% de aproveitamento, você está abaixo do corte ideal (75%). Reforce a memorização de exceções e prazos legais.`
                   })}
-                  className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08] hover:border-white/[0.2] transition-all cursor-pointer group"
+                  className="p-5 sm:p-6 rounded-3xl bg-white/[0.03] hover:border-white/[0.2] transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block">
@@ -937,7 +921,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                       ? `Ritmo equilibrado de ${data.global.tempoMedioPorQuestao}s por questão, dentro da zona de segurança do concurso da PMPE.`
                       : `Atenção: ritmo lento de ${data.global.tempoMedioPorQuestao}s por questão. Risco de faltar tempo para preencher o gabarito ou fazer a redação da PMPE.`
                   })}
-                  className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08] hover:border-white/[0.2] transition-all cursor-pointer group"
+                  className="p-5 sm:p-6 rounded-3xl bg-white/[0.03] hover:border-white/[0.2] transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block">
@@ -952,16 +936,16 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
 
                 <div 
                   onClick={() => setActiveSubTab('erros')}
-                  className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08] hover:border-amber-500/30 transition-all cursor-pointer group"
+                  className="p-5 sm:p-6 rounded-3xl bg-white/[0.03] hover:border-amber-500/30 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block">
                       Caderno de Erros
                     </span>
-                    <span className="text-[10px] text-amber-400">Abrir</span>
+                    <span className="text-xs text-slate-500">Abrir</span>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-amber-400">
+                    <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-100">
                       {data.cadernoErros.pendentes_hoje}
                     </span>
                     <span className="text-xs sm:text-sm text-slate-400">pendentes</span>
@@ -975,7 +959,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                     nota: Math.round((data.global.taxaGeral / 100) * 60),
                     feedback: `Com base em 60 questões da prova oficial de Soldado da PMPE, sua taxa atual (${data.global.taxaGeral}%) projeta ${Math.round((data.global.taxaGeral / 100) * 60)} acertos. O corte histórico para convocação ao TAF varia entre 40 e 46 pontos.`
                   })}
-                  className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08] hover:border-white/[0.2] transition-all cursor-pointer group"
+                  className="p-5 sm:p-6 rounded-3xl bg-white/[0.03] hover:border-white/[0.2] transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block">
@@ -984,7 +968,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                     <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">Ver Feedback</span>
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-indigo-400">
+                    <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-100">
                       {Math.round((data.global.taxaGeral / 100) * 60)}
                     </span>
                     <span className="text-xs sm:text-sm text-slate-400">/ 60 pts</span>
@@ -994,7 +978,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
 
               {/* PAINEL DE FEEDBACK TÁTICO INTERATIVO (QUANDO O USUÁRIO CLICA EM QUALQUER ELEMENTO DO GRÁFICO) */}
               {inspectedItem && (
-                <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-indigo-950/40 via-[#131b2e] to-[#0f1422] border border-indigo-500/30 shadow-2xl animate-in fade-in slide-in-from-top-2 relative">
+                <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-indigo-950/40 via-[#131b2e] to-[#0f1422] border border-indigo-500/30 animate-in fade-in slide-in-from-top-2 relative">
                   <button
                     onClick={() => setInspectedItem(null)}
                     className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] cursor-pointer"
@@ -1179,12 +1163,12 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
               )}
 
               {/* 2. GRÁFICO 1: EVOLUÇÃO E ACERTOS AO LONGO DOS TESTES (INTERATIVO COM CLIQUE) */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] space-y-4">
+              <div className="p-6 sm:p-8 rounded-3xl bg-white/[0.03] space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
                   <div>
                     <h3 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
                       <TrendingUp className="w-5 h-5 text-indigo-400" />
-                      <span>Curva de Evolução & Desempenho nos Simulados</span>
+                      <span>Evolução nos testes</span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
                       Clique em qualquer ponto do gráfico para ver o feedback detalhado daquele teste
@@ -1338,12 +1322,12 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
               </div>
 
               {/* 3. GRÁFICO 2: APROVEITAMENTO POR DISCIPLINA (INTERATIVO COM CLIQUE) */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] space-y-4">
+              <div className="p-6 sm:p-8 rounded-3xl bg-white/[0.03] space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
                   <div>
                     <h3 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
                       <BookOpen className="w-5 h-5 text-indigo-400" />
-                      <span>Aproveitamento por Disciplina (Clique para feedback)</span>
+                      <span>Aproveitamento por disciplina</span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
                       Barras com precisão e ritmo. Clique em uma matéria para ver o diagnóstico estratégico
@@ -1427,15 +1411,15 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
               </div>
 
               {/* 4. GRÁFICO 3: RADAR & MATRIZ DE ASSUNTOS E TÓPICOS (INTERATIVO COM CLIQUE) */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] space-y-4">
+              <div className="p-6 sm:p-8 rounded-3xl bg-white/[0.03] space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
                   <div>
                     <h3 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
                       <Layers className="w-5 h-5 text-indigo-400" />
-                      <span>Matriz de Tópicos e Assuntos (Clique para inspecionar)</span>
+                      <span>Tópicos do edital</span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Classificação por faixa de risco: 🟢 Seguro (≥75%) • 🟡 Atenção (60-74%) • 🔴 Crítico (&lt;60%)
+                      Seguro (75% ou mais) · Atenção (60 a 74%) · Crítico (abaixo de 60%)
                     </p>
                   </div>
                 </div>
@@ -1512,7 +1496,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
               </div>
 
               {/* 5. DIAGNÓSTICO TÁTICO COM GEMINI & MENTOR PEDAGÓGICO */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] relative overflow-hidden shadow-2xl space-y-6">
+              <div className="p-6 sm:p-8 rounded-3xl bg-white/[0.03] relative overflow-hidden space-y-6">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.06] relative z-10">
@@ -1522,7 +1506,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2.5">
-                        <h3 className="text-lg sm:text-xl font-bold text-slate-100">Mentor IA: Diagnóstico de Desempenho</h3>
+                        <h3 className="text-lg sm:text-xl font-bold text-slate-100">Diagnóstico com IA</h3>
                         {diagnostic?.classificacao && (
                           <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide border ${
                             diagnostic.classificacao === 'Excelente' || diagnostic.classificacao === 'Competitivo'
@@ -1677,7 +1661,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                           {diagnostic.planoDeAtaque.metaEstudo && (
                             <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs sm:text-sm">
-                              <span className="text-indigo-400 font-bold block mb-1">🎯 Meta Prática:</span>
+                              <span className="text-indigo-400 font-bold block mb-1">Meta Prática:</span>
                               <span className="text-slate-300">{diagnostic.planoDeAtaque.metaEstudo}</span>
                             </div>
                           )}

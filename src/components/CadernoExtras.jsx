@@ -51,7 +51,7 @@ export function ResumoArmadilhas({ armadilhas }) {
   if (!armadilhas || armadilhas.length === 0) return null;
   const maximo = Math.max(...armadilhas.map((a) => a.total));
   return (
-    <div className="p-5 rounded-2xl bg-[#121929] border border-white/[0.08] space-y-2.5">
+    <div className="p-5 rounded-2xl bg-white/[0.03] space-y-2.5">
       <h3 className="text-sm font-bold text-slate-100">Por que você erra</h3>
       {armadilhas.map((a) => (
         <div key={a.tipo} className="text-xs text-slate-300">

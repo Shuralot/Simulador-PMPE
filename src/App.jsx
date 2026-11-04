@@ -350,7 +350,7 @@ export default function App() {
       />
 
       {/* Conteúdo Principal */}
-      <main className={`flex-1 flex flex-col ${activeTab === 'quiz' && quizState === 'config' ? 'justify-center py-2 sm:py-4' : 'py-6 sm:py-8'}`}>
+      <main className={`flex-1 flex flex-col py-6 sm:py-8`}>
         {/* Notificação de Erro Global */}
         {errorMsg && (
           <div className="max-w-5xl mx-auto mb-4 px-4 sm:px-6 w-full">
@@ -387,20 +387,6 @@ export default function App() {
               <PlanoEstudo onEstudarTopico={handleStartTargetedQuiz} refreshKey={resultData} />
             )}
 
-            {quizState === 'config' && revisoesVencidas.length > 0 && (
-              <div className="max-w-5xl mx-auto mb-4 px-4 sm:px-6 w-full">
-                <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-sm flex items-center justify-between gap-3">
-                  <span>Hoje você tem <strong>{revisoesVencidas.length}</strong> {revisoesVencidas.length === 1 ? 'revisão vencida' : 'revisões vencidas'} no Caderno de Erros.</span>
-                  <button
-                    onClick={() => handleStartCadernoQuiz(revisoesVencidas)}
-                    className="px-3 py-1.5 text-xs font-semibold bg-indigo-500/30 rounded-lg hover:bg-indigo-500/40 cursor-pointer whitespace-nowrap"
-                  >
-                    Revisar agora
-                  </button>
-                </div>
-              </div>
-            )}
-
             {quizState === 'config' && (
               <QuizConfig
                 onStartQuiz={handleStartQuiz}
@@ -408,8 +394,9 @@ export default function App() {
                 loading={loading}
                 hasApiKey={!!apiKey}
                 onOpenSettings={() => setActiveTab('settings')}
-                preferences={preferences}
                 prefilled={prefilledSubject}
+                revisoesVencidas={revisoesVencidas.length}
+                onRevisar={() => handleStartCadernoQuiz(revisoesVencidas)}
               />
             )}
 

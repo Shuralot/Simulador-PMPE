@@ -9,7 +9,7 @@ export default function CadernoTab({ caderno, planoCaderno, onRevisar, onStartCa
 
   return (
     <div className="space-y-5">
-      <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] flex flex-wrap items-center justify-between gap-4">
+      <div className="p-6 sm:p-8 rounded-3xl bg-white/[0.03] flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-100 flex items-center gap-2.5">
             <Brain className="w-6 h-6 text-rose-400" />
@@ -42,7 +42,7 @@ export default function CadernoTab({ caderno, planoCaderno, onRevisar, onStartCa
       <ResumoArmadilhas armadilhas={planoCaderno.armadilhas} />
 
       {caderno.length === 0 ? (
-        <div className="p-10 rounded-3xl bg-[#121929] border border-white/[0.08] text-center">
+        <div className="p-10 rounded-3xl bg-white/[0.03] text-center">
           <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-80" />
           <p className="text-sm text-slate-400">Nenhuma questão pendente no caderno de erros!</p>
         </div>
@@ -51,7 +51,7 @@ export default function CadernoTab({ caderno, planoCaderno, onRevisar, onStartCa
           {caderno.map((q) => {
             const isRevealed = revealedAnswers[q.id];
             return (
-              <div key={q.id} className="p-6 rounded-2xl bg-[#121929] border border-white/[0.08] space-y-3.5">
+              <div key={q.id} className="p-6 rounded-2xl bg-white/[0.03] space-y-3.5">
                 <div className="flex items-center justify-between text-xs sm:text-sm">
                   <div className="flex items-center gap-2.5">
                     <span className="font-bold text-rose-400">Caixa Leitner {q.caixa_leitner}</span>

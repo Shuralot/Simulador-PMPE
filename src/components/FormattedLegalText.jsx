@@ -80,16 +80,11 @@ export default function FormattedLegalText({ text }) {
   const flushIncisos = () => {
     if (currentIncisos.length > 0) {
       elements.push(
-        <div key={`inc-group-${elements.length}`} className="space-y-1.5 my-2 pl-1 sm:pl-2">
+        <div key={`inc-group-${elements.length}`} className="space-y-2 my-2 pl-3 sm:pl-5">
           {currentIncisos.map((inc, i) => (
-            <div
-              key={i}
-              className="flex items-start gap-2.5 p-2 rounded-xl bg-white/[0.015] hover:bg-white/[0.04] border border-white/[0.04] transition-colors"
-            >
-              <span className="shrink-0 font-mono font-bold text-[11px] sm:text-xs text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 rounded-md min-w-[28px] text-center mt-0.5">
-                {inc.num}
-              </span>
-              <span className="text-xs sm:text-sm text-slate-200 leading-relaxed flex-1">
+            <div key={i} className="flex items-baseline gap-3">
+              <span className="shrink-0 font-mono text-sm text-slate-500 min-w-8 text-right">{inc.num}</span>
+              <span className="text-base text-slate-200 leading-relaxed flex-1">
                 {formatInlineMarkdown(inc.content)}
               </span>
             </div>
@@ -120,17 +115,10 @@ export default function FormattedLegalText({ text }) {
     const matchParagrafo = rawLine.match(/^(§\s*\d+[º°o]?|Par[aá]grafo\s+[uú]nico\.?)\s*(.*)$/i);
     if (matchParagrafo) {
       elements.push(
-        <div
-          key={`par-${idx}`}
-          className="my-2 p-2.5 rounded-xl bg-amber-500/[0.06] border border-amber-500/20 flex items-start gap-2.5"
-        >
-          <span className="shrink-0 font-bold text-xs text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md mt-0.5 whitespace-nowrap">
-            {matchParagrafo[1].trim()}
-          </span>
-          <span className="text-xs sm:text-sm text-slate-200 leading-relaxed flex-1">
-            {formatInlineMarkdown(matchParagrafo[2])}
-          </span>
-        </div>
+        <p key={`par-${idx}`} className="my-2 text-base text-slate-200 leading-relaxed">
+          <strong className="font-semibold text-slate-100 whitespace-nowrap">{matchParagrafo[1].trim()}</strong>{' '}
+          {formatInlineMarkdown(matchParagrafo[2])}
+        </p>
       );
       continue;
     }
@@ -139,11 +127,11 @@ export default function FormattedLegalText({ text }) {
     const matchAlinea = rawLine.match(/^([a-z])\)\s*(.*)$/i);
     if (matchAlinea) {
       elements.push(
-        <div key={`ali-${idx}`} className="flex items-start gap-2 pl-6 sm:pl-8 py-1">
-          <span className="shrink-0 font-bold text-xs text-slate-400 font-mono mt-0.5">
+        <div key={`ali-${idx}`} className="flex items-baseline gap-2 pl-10 sm:pl-14 py-0.5">
+          <span className="shrink-0 font-mono text-sm text-slate-500">
             {matchAlinea[1].toLowerCase()})
           </span>
-          <span className="text-xs sm:text-sm text-slate-300 leading-relaxed flex-1">
+          <span className="text-base text-slate-300 leading-relaxed flex-1">
             {formatInlineMarkdown(matchAlinea[2])}
           </span>
         </div>
@@ -190,31 +178,17 @@ export default function FormattedLegalText({ text }) {
       const caputResto = matchArtigo[2].trim();
 
       elements.push(
-        <div
-          key={`art-${idx}`}
-          className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08] mb-2 space-y-1.5 shadow-xs"
-        >
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-mono font-black text-xs uppercase tracking-wider">
-              {artLabel}
-            </span>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Caput da Norma
-            </span>
-          </div>
-          {caputResto && (
-            <p className="text-xs sm:text-sm text-slate-100 font-medium leading-relaxed">
-              {formatInlineMarkdown(caputResto)}
-            </p>
-          )}
-        </div>
+        <p key={`art-${idx}`} className="mb-2 text-base text-slate-100 leading-relaxed">
+          <strong className="font-semibold text-indigo-300">{artLabel}</strong>{' '}
+          {caputResto && formatInlineMarkdown(caputResto)}
+        </p>
       );
       continue;
     }
 
     // 7. Linha normal / parágrafo de texto
     elements.push(
-      <p key={`txt-${idx}`} className="text-xs sm:text-sm text-slate-200 leading-relaxed my-1">
+      <p key={`txt-${idx}`} className="text-base text-slate-200 leading-relaxed my-1">
         {formatInlineMarkdown(rawLine)}
       </p>
     );

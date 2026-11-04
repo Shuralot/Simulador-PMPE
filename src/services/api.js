@@ -71,8 +71,15 @@ export async function saveSimuladoResult(simuladoData) {
   return await res.json();
 }
 
-export async function fetchDesempenho() {
-  const res = await fetch(`${API_BASE}/desempenho`);
+export async function fetchDesempenho(filtros = {}) {
+  const params = new URLSearchParams();
+  if (filtros.disciplina && filtros.disciplina !== 'TODAS') params.set('disciplina', filtros.disciplina);
+  if (filtros.assunto && filtros.assunto !== 'TODOS') params.set('assunto', filtros.assunto);
+  if (filtros.simuladoId && filtros.simuladoId !== 'TODOS') params.set('simuladoId', filtros.simuladoId);
+  if (filtros.modo && filtros.modo !== 'TODOS') params.set('modo', filtros.modo);
+  if (filtros.limite) params.set('limite', filtros.limite);
+  const queryStr = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${API_BASE}/desempenho${queryStr}`);
   if (!res.ok) throw new Error('Falha ao carregar métricas de desempenho.');
   return await res.json();
 }

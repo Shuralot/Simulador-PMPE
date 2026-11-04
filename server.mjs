@@ -1511,6 +1511,28 @@ app.post('/api/caderno-erros/:id/revisar', (req, res) => {
 
 app.get('/api/desempenho', (req, res) => {
   try {
+    const { disciplina, assunto, simuladoId, modo, limite } = req.query;
+
+    const conds = [];
+    const params = [];
+    if (disciplina && disciplina !== 'TODAS') {
+      conds.push('disciplina = ?');
+      params.push(disciplina);
+    }
+    if (assunto && assunto !== 'TODOS') {
+      conds.push('(assunto = ? OR topico = ?)');
+      params.push(assunto, assunto);
+    }
+    if (simuladoId && simuladoId !== 'TODOS') {
+      conds.push('simulado_id = ?');
+      params.push(Number(simuladoId));
+    }
+    if (modo && modo !== 'TODOS') {
+      conds.push('simulado_id IN (SELECT id FROM simulados WHERE modo = ?)');
+      params.push(modo);
+    }
+    const whereSql = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
+
     const simuladosCount = db.prepare('SELECT COUNT(*) as count FROM simulados').get().count;
     const globalStats = db.prepare(`
       SELECT
@@ -1524,7 +1546,8 @@ app.get('/api/desempenho', (req, res) => {
         SUM(CASE WHEN marcou_duvida = 1 AND acertou = 1 THEN 1 ELSE 0 END) as acertos_com_duvida,
         SUM(CASE WHEN COALESCE(marcou_duvida, 0) = 0 AND acertou = 0 THEN 1 ELSE 0 END) as erros_com_confianca
       FROM questoes_respondidas
-    `).get();
+      ${whereSql}
+    `).get(...params);
 
     const disciplinaStats = db.prepare(`
       SELECT
@@ -1534,9 +1557,10 @@ app.get('/api/desempenho', (req, res) => {
         ROUND((SUM(CASE WHEN acertou = 1 THEN 1.0 ELSE 0.0 END) / COUNT(id)) * 100, 1) as taxa,
         ROUND(AVG(tempo_segundos), 0) as tempo_medio
       FROM questoes_respondidas
+      ${whereSql}
       GROUP BY disciplina
       ORDER BY taxa ASC
-    `).all();
+    `).all(...params);
 
     // Tendência: últimas 20 respostas da disciplina vs. as 20 anteriores
     const respostas = db.prepare('SELECT disciplina, acertou FROM questoes_respondidas ORDER BY id DESC LIMIT 3000').all();
@@ -1551,7 +1575,10 @@ app.get('/api/desempenho', (req, res) => {
       d.tendencia = recente.length >= 10 && anterior.length >= 10 ? Math.round((taxaDe(recente) - taxaDe(anterior)) * 10) / 10 : null;
     }
 
-    // Tópicos canônicos do edital (em vez do texto livre que a IA inventa em "assunto")
+    // Tópicos canônicos do edital
+    const assuntoWhere = conds.length > 0 
+      ? `WHERE ${conds.join(' AND ')} AND COALESCE(NULLIF(topico, ''), assunto) IS NOT NULL`
+      : `WHERE COALESCE(NULLIF(topico, ''), assunto) IS NOT NULL`;
     const assuntoStats = db.prepare(`
       SELECT
         disciplina,
@@ -1562,11 +1589,10 @@ app.get('/api/desempenho', (req, res) => {
         ROUND((SUM(CASE WHEN acertou = 1 THEN 1.0 ELSE 0.0 END) / COUNT(id)) * 100, 1) as taxa,
         ROUND(AVG(tempo_segundos), 0) as tempo_medio
       FROM questoes_respondidas
-      WHERE COALESCE(NULLIF(topico, ''), assunto) IS NOT NULL
+      ${assuntoWhere}
       GROUP BY disciplina, COALESCE(NULLIF(topico, ''), assunto)
-      HAVING total >= 2
       ORDER BY taxa ASC
-    `).all();
+    `).all(...params);
 
     const pontosFortes = assuntoStats.filter(a => a.taxa >= 75);
     const emAlerta = assuntoStats.filter(a => a.taxa >= 60 && a.taxa < 75);
@@ -1579,15 +1605,47 @@ app.get('/api/desempenho', (req, res) => {
         SUM(CASE WHEN acertou = 1 THEN 1 ELSE 0 END) as acertos,
         ROUND((SUM(CASE WHEN acertou = 1 THEN 1.0 ELSE 0.0 END) / COUNT(id)) * 100, 1) as taxa
       FROM questoes_respondidas
+      ${whereSql}
       GROUP BY UPPER(COALESCE(origem, 'INÉDITA'))
-    `).all();
+    `).all(...params);
 
-    const limiteEvolucao = Math.max(5, Math.min(200, Number(req.query.limite) || 30));
+    const limiteEvolucao = Math.max(5, Math.min(200, Number(limite) || 30));
     const evolucao = db.prepare(`
       SELECT id, data_hora, disciplina, assunto, modo, total_questoes, acertos,
              ROUND(taxa_acerto, 1) as taxa_acerto, tempo_segundos, ROUND(tempo_medio_questao, 0) as tempo_medio_questao
       FROM simulados ORDER BY id DESC LIMIT ?
     `).all(limiteEvolucao).reverse();
+
+    // Detalhes de teste individual (quando filtrado por simuladoId)
+    let questoesDoSimulado = [];
+    let simuladoDetalhes = null;
+    if (simuladoId && simuladoId !== 'TODOS') {
+      simuladoDetalhes = db.prepare('SELECT * FROM simulados WHERE id = ?').get(Number(simuladoId)) || null;
+      questoesDoSimulado = db.prepare(`
+        SELECT id, questao_numero, disciplina, COALESCE(NULLIF(topico, ''), assunto) as assunto,
+               enunciado, gabarito, resposta_usuario, acertou, tempo_segundos, marcou_duvida, explicacao_json
+        FROM questoes_respondidas
+        WHERE simulado_id = ?
+        ORDER BY questao_numero ASC, id ASC
+      `).all(Number(simuladoId));
+    }
+
+    // Catálogo de filtros para o frontend
+    const filtrosDisponiveis = {
+      disciplinas: db.prepare('SELECT DISTINCT disciplina FROM questoes_respondidas ORDER BY disciplina ASC').all().map(r => r.disciplina),
+      assuntos: db.prepare(`
+        SELECT DISTINCT disciplina, COALESCE(NULLIF(topico, ''), assunto) as assunto, COUNT(id) as total
+        FROM questoes_respondidas
+        WHERE COALESCE(NULLIF(topico, ''), assunto) IS NOT NULL
+        GROUP BY disciplina, COALESCE(NULLIF(topico, ''), assunto)
+        ORDER BY assunto ASC
+      `).all(),
+      simulados: db.prepare(`
+        SELECT id, data_hora, disciplina, assunto, modo, total_questoes, acertos, erros, taxa_acerto, tempo_segundos, tempo_medio_questao
+        FROM simulados
+        ORDER BY id DESC
+      `).all()
+    };
 
     const hoje = hojeLocal();
     const leitnerStats = db.prepare(`
@@ -1694,7 +1752,16 @@ app.get('/api/desempenho', (req, res) => {
       evolucao,
       cadernoErros: leitnerStats,
       ultimosErros,
-      coberturaEdital
+      coberturaEdital,
+      filtroAtivo: {
+        disciplina: (disciplina && disciplina !== 'TODAS') ? disciplina : null,
+        assunto: (assunto && assunto !== 'TODOS') ? assunto : null,
+        simuladoId: (simuladoId && simuladoId !== 'TODOS') ? Number(simuladoId) : null,
+        modo: (modo && modo !== 'TODOS') ? modo : null
+      },
+      filtrosDisponiveis,
+      simuladoDetalhes,
+      questoesDoSimulado
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

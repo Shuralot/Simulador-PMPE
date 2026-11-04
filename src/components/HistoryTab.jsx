@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart3, 
   Clock, 
@@ -12,7 +12,17 @@ import {
   RefreshCw,
   ArrowRight,
   Zap,
-  AlertCircle
+  AlertCircle,
+  Filter,
+  TrendingUp,
+  TrendingDown,
+  Layers,
+  BookOpen,
+  ChevronRight,
+  X,
+  Eye,
+  Check,
+  Compass
 } from 'lucide-react';
 import { 
   fetchDesempenho, 
@@ -29,7 +39,6 @@ import LegalReferencePanel from './LegalReferencePanel';
 function parseDiagnostic(raw, fallbackData) {
   if (!raw && !fallbackData) return null;
 
-  // Se já for um objeto estruturado válido
   if (raw && typeof raw === 'object' && raw.kpis && raw.resumoExecutivo) {
     return raw;
   }
@@ -37,7 +46,6 @@ function parseDiagnostic(raw, fallbackData) {
   let text = typeof raw === 'string' ? raw.trim() : '';
 
   if (text) {
-    // Remove blocos de markdown caso venham no retorno
     if (text.startsWith('```json')) {
       text = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
     } else if (text.startsWith('```')) {
@@ -59,13 +67,12 @@ function parseDiagnostic(raw, fallbackData) {
             return parsed;
           }
         } catch {
-          // Continua para o gerador de resiliência
+          // segue para o gerador de fallback
         }
       }
     }
   }
 
-  // Fallback tático calculado diretamente a partir dos dados reais do SQLite
   const pace = fallbackData?.global?.tempoMedioPorQuestao || 0;
   const taxa = fallbackData?.global?.taxaGeral || 0;
   const totalQuestoes = fallbackData?.global?.totalQuestoes || 0;
@@ -75,13 +82,13 @@ function parseDiagnostic(raw, fallbackData) {
 
   const topicoCritico = fallbackData?.zonasCriticas?.[0] || null;
   const discAlvo = topicoCritico?.disciplina || fallbackData?.disciplinas?.[0]?.disciplina || 'Direito Constitucional';
-  const topicoAlvo = topicoCritico?.assunto || 'Direitos e Deveres Individuais (Art. 5º)';
+  const topicoAlvo = topicoCritico?.assunto || 'Artigo 5º da CF/88';
 
   const classificacao = taxa >= 75 ? 'Competitivo' : taxa >= 60 ? 'Em Evolução' : 'Atenção Crítica';
 
   const resumo = typeof raw === 'string' && raw.length > 25 && !raw.includes('{')
     ? raw.replace(/[*#]/g, '').trim()
-    : `Com taxa de acerto de ${taxa}% (${totalQuestoes} questões resolvidas) e ritmo médio de ${pace}s/questão, você mantém excelente velocidade de prova. O foco prioritário deve ser zerar as pendências do Caderno de Erros e blindar os tópicos mais recorrentes da banca Instituto AOCP.`;
+    : `Com taxa de acerto de ${taxa}% (${totalQuestoes} questões resolvidas) e ritmo médio de ${pace}s/questão, você mantém boa velocidade. O foco prioritário deve ser zerar as pendências do Caderno de Erros e blindar os tópicos mais recorrentes da banca Instituto AOCP.`;
 
   return {
     scoreProntidao: taxa || 70,
@@ -162,6 +169,17 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
   const [loadingSimulados, setLoadingSimulados] = useState(false);
   const [actionFeedback, setActionFeedback] = useState(null);
 
+  // Filtros de Desempenho
+  const [selectedScope, setSelectedScope] = useState('geral'); // 'geral' | 'simulado' | 'disciplina' | 'assunto'
+  const [selectedSimuladoId, setSelectedSimuladoId] = useState('');
+  const [selectedDisciplina, setSelectedDisciplina] = useState('');
+  const [selectedAssunto, setSelectedAssunto] = useState('');
+  const [selectedModo, setSelectedModo] = useState('TODOS'); // 'TODOS' | 'estudo' | 'simulado'
+
+  // Item Inspecionado no Gráfico para Feedback Textual Imediato
+  const [inspectedItem, setInspectedItem] = useState(null);
+  const [inspectedQuestao, setInspectedQuestao] = useState(null);
+
   // Diagnóstico Pedagógico com Gemini
   const [diagnostic, setDiagnostic] = useState(null);
   const [loadingDiagnostic, setLoadingDiagnostic] = useState(false);
@@ -171,10 +189,17 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
   // Questão aberta no caderno de erros
   const [revealedAnswers, setRevealedAnswers] = useState({});
 
-  const loadData = async () => {
+  const loadData = async (customFilters = null) => {
     try {
       setLoading(true);
-      const res = await fetchDesempenho();
+      const filtros = customFilters !== null ? customFilters : {
+        disciplina: selectedScope === 'disciplina' ? selectedDisciplina : selectedScope === 'assunto' ? selectedDisciplina : '',
+        assunto: selectedScope === 'assunto' ? selectedAssunto : '',
+        simuladoId: selectedScope === 'simulado' ? selectedSimuladoId : '',
+        modo: selectedModo !== 'TODOS' ? selectedModo : ''
+      };
+
+      const res = await fetchDesempenho(filtros);
       setData(res);
     } catch (err) {
       console.error(err);
@@ -208,7 +233,6 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
   };
 
   useEffect(() => {
-    loadData();
     loadCaderno(false);
     loadSimulados();
 
@@ -227,6 +251,18 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
     }
   }, []);
 
+  // Recarrega dados sempre que o escopo ou os filtros ativos mudam
+  useEffect(() => {
+    const filtros = {
+      disciplina: (selectedScope === 'disciplina' || selectedScope === 'assunto') ? selectedDisciplina : '',
+      assunto: selectedScope === 'assunto' ? selectedAssunto : '',
+      simuladoId: selectedScope === 'simulado' ? selectedSimuladoId : '',
+      modo: selectedModo !== 'TODOS' ? selectedModo : ''
+    };
+    loadData(filtros);
+    setInspectedQuestao(null);
+  }, [selectedScope, selectedSimuladoId, selectedDisciplina, selectedAssunto, selectedModo]);
+
   const handleDeleteSimulado = async (id) => {
     if (!window.confirm(`Deseja apagar o Simulado #${id}? As métricas de desempenho serão recalculadas imediatamente.`)) {
       return;
@@ -234,6 +270,10 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
     try {
       await deleteSimulado(id);
       setActionFeedback(`Simulado #${id} excluído com sucesso. Suas métricas foram recalculadas.`);
+      if (selectedSimuladoId === String(id)) {
+        setSelectedSimuladoId('');
+        setSelectedScope('geral');
+      }
       await loadData();
       await loadSimulados();
       setTimeout(() => setActionFeedback(null), 4000);
@@ -249,6 +289,8 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
     try {
       await clearAllSimulados();
       setActionFeedback('Todos os testes foram excluídos com sucesso.');
+      setSelectedSimuladoId('');
+      setSelectedScope('geral');
       await loadData();
       await loadSimulados();
       setTimeout(() => setActionFeedback(null), 4000);
@@ -276,7 +318,6 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
     }
 
     if (!effectiveKey) {
-      // Gera diagnóstico resiliente estruturado com base direta nas métricas do SQLite
       const localDiagnostic = parseDiagnostic(null, data);
       setDiagnostic(localDiagnostic);
       const nowStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (' + new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ')';
@@ -290,6 +331,12 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
 
     try {
       const summaryPayload = {
+        filtro: {
+          escopo: selectedScope,
+          disciplina: selectedDisciplina || 'Todas',
+          assunto: selectedAssunto || 'Todos',
+          simuladoId: selectedSimuladoId || 'Todos'
+        },
         taxaGeral: data?.global?.taxaGeral,
         totalQuestoes: data?.global?.totalQuestoes,
         totalAcertos: data?.global?.totalAcertos,
@@ -299,57 +346,39 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
         notaProjetada60: data?.global?.notaProjetada60,
         cadernoErros: {
           pendentesHoje: data?.cadernoErros?.pendentes_hoje,
-          totalPendentes: data?.cadernoErros?.total_pendentes,
-          totalDominadas: data?.cadernoErros?.total_dominadas
+          totalPendentes: data?.cadernoErros?.total_pendentes
         },
-        calibracao: data?.global?.calibracao,
         disciplinas: (data?.disciplinas || []).map(d => ({
           disciplina: d.disciplina,
           taxa: d.taxa,
           acertos: d.acertos,
           total: d.total,
-          tempoMedio: d.tempo_medio,
-          tendencia: d.tendencia
+          tempoMedio: d.tempo_medio
         })),
         zonasCriticas: (data?.zonasCriticas || []).slice(0, 5).map(z => ({
           disciplina: z.disciplina,
           topico: z.assunto,
           taxa: z.taxa,
-          erros: z.erros,
-          total: z.total
-        })),
-        pontosFortes: (data?.pontosFortes || []).slice(0, 5).map(p => ({
-          disciplina: p.disciplina,
-          topico: p.assunto,
-          taxa: p.taxa,
-          total: p.total
-        })),
-        ultimosErros: (data?.ultimosErros || []).slice(0, 5).map(e => ({
-          disciplina: e.disciplina,
-          topico: e.assunto,
-          tempoSegundos: e.tempo_segundos
+          erros: z.erros
         }))
       };
 
       const prompt = `Você é um mentor especialista de elite em aprovação para Soldado da Polícia Militar de Pernambuco (PMPE), com domínio minucioso da banca examinadora Instituto AOCP.
-Analise os seguintes dados estatísticos REAIS do aluno, gravados no banco SQLite:
+Analise os seguintes dados estatísticos do aluno no SQLite:
 ${JSON.stringify(summaryPayload, null, 2)}
 
-Contexto da prova PMPE (Instituto AOCP):
-- 60 questões objetivas (Língua Portuguesa 10, História de PE 10, RLM 10, Informática 10, Direito Constitucional 10, Direitos Humanos e Legislação Extravagante 10).
-- Duração total: 4 horas (~2m20s a 2m30s por questão com cartão-resposta).
-- Nota de corte média para o TAF: 40 a 48 pontos (66% a 80%).
+Contexto da prova PMPE:
+- 60 questões objetivas (~2m30s por questão com cartão-resposta).
+- Nota de corte estimada: 40 a 48 pontos (66% a 80%).
 
 Instruções cruciais:
-1. Avalie o ritmo do aluno (${data?.global?.tempoMedioPorQuestao || 0}s/q): se for rápido (<50s), avalie se ele está ágil e assertivo ou sob risco de impulsividade.
-2. Identifique a disciplina e tópico onde ele mais perde pontos ou precisa blindar a pontuação.
-3. Elabore um plano de ataque cirúrgico e dicas sobre armadilhas da banca AOCP.
-
-RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
+1. Avalie o ritmo (${data?.global?.tempoMedioPorQuestao || 0}s/q) e precisão.
+2. Identifique os pontos críticos imediatos e forneça plano tático.
+RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO:
 {
   "scoreProntidao": ${data?.global?.taxaGeral || 75},
   "classificacao": "${(data?.global?.taxaGeral || 0) >= 75 ? 'Competitivo' : (data?.global?.taxaGeral || 0) >= 60 ? 'Em Evolução' : 'Atenção Crítica'}",
-  "resumoExecutivo": "2 a 3 frases densas e motivadoras avaliando a prontidão real do candidato e o principal ajuste de estudo.",
+  "resumoExecutivo": "2 a 3 frases densas e motivadoras avaliando a prontidão real e ajuste de estudo.",
   "kpis": [
     {
       "titulo": "Ritmo de Prova",
@@ -381,35 +410,29 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
     }
   ],
   "planoDeAtaque": {
-    "disciplina": "Nome exato da matéria prioritária",
-    "topico": "Tópico prioritário para hoje",
+    "disciplina": "Nome da matéria prioritária",
+    "topico": "Tópico prioritário",
     "prioridade": "Alta",
-    "motivo": "Por que focar exatamente neste conteúdo agora.",
-    "metaEstudo": "Meta prática de estudo (ex: resolver 15 questões focando em prazos).",
+    "motivo": "Por que focar neste conteúdo.",
+    "metaEstudo": "Meta prática de estudo.",
     "dicaTatica": "Dica estratégica de como a banca AOCP cobra este conteúdo."
   },
   "pontosDeAtencao": [
     {
-      "disciplina": "Nome da Matéria",
+      "disciplina": "Matéria",
       "topico": "Tópico com erros",
-      "problema": "Onde está a falha cognitiva ou falta de memorização.",
+      "problema": "Onde está a falha.",
       "gravidade": "alta"
     }
   ],
   "pontosFortes": [
-    "Ponto forte demonstrado pelo desempenho do aluno.",
-    "Outro ponto forte que deve ser mantido com revisões periódicas."
+    "Ponto forte demonstrado pelo candidato."
   ],
   "acoesRecomendadas": [
     {
       "acao": "Revisar as pendências no Caderno de Erros",
       "impacto": "Garante retenção na memória de longo prazo.",
       "tipoAcao": "caderno"
-    },
-    {
-      "acao": "Treinar bateria no tópico crítico",
-      "impacto": "Converte ponto fraco em pontuação líquida garantida.",
-      "tipoAcao": "treino"
     }
   ]
 }`;
@@ -446,14 +469,14 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
         localStorage.setItem('mentor_ia_diagnostico_date', nowStr);
       }
     } catch (err) {
-      console.warn('Erro ao consultar Gemini, usando fallback de alta precisão:', err);
+      console.warn('Erro ao consultar Gemini, usando fallback:', err);
       const localDiagnostic = parseDiagnostic(null, data);
       setDiagnostic(localDiagnostic);
       const nowStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (' + new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ')';
       setDiagnosticTimestamp(nowStr);
       localStorage.setItem('mentor_ia_diagnostico_cache', JSON.stringify(localDiagnostic));
       localStorage.setItem('mentor_ia_diagnostico_date', nowStr);
-      setDiagnosticNotice(`IA temporariamente indisponível (${err.message}). Exibindo diagnóstico estratégico calculado a partir das suas métricas do SQLite.`);
+      setDiagnosticNotice(`IA temporariamente indisponível (${err.message}). Exibindo diagnóstico preliminar calibrado pelo SQLite.`);
     } finally {
       setLoadingDiagnostic(false);
     }
@@ -469,16 +492,37 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
     }
   };
 
-  if (loading && !data) {
-    return (
-      <div className="max-w-5xl mx-auto py-16 px-4 text-center">
-        <div className="w-10 h-10 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm text-slate-400">Carregando métricas do banco SQLite...</p>
-      </div>
-    );
-  }
+  // Helper para acionar feedback do gráfico
+  const handleInspectChart = (item) => {
+    setInspectedItem(item);
+  };
 
   const hasData = data && data.global && data.global.totalQuestoes > 0;
+  const evolucaoList = data?.evolucao || [];
+
+  // Dados para o gráfico de evolução SVG
+  const chartPoints = useMemo(() => {
+    if (!evolucaoList || evolucaoList.length === 0) return [];
+    const width = 680;
+    const height = 180;
+    const padX = 40;
+    const padY = 25;
+
+    const count = evolucaoList.length;
+    return evolucaoList.map((sim, index) => {
+      const x = count === 1 ? width / 2 : padX + (index * (width - 2 * padX)) / (count - 1);
+      const taxa = Math.min(100, Math.max(0, Number(sim.taxa_acerto) || 0));
+      const y = height - padY - (taxa / 100) * (height - 2 * padY);
+      return { x, y, taxa, sim };
+    });
+  }, [evolucaoList]);
+
+  // Lista de tópicos filtráveis baseada na disciplina selecionada
+  const availableAssuntos = useMemo(() => {
+    if (!data?.filtrosDisponiveis?.assuntos) return [];
+    if (!selectedDisciplina) return data.filtrosDisponiveis.assuntos;
+    return data.filtrosDisponiveis.assuntos.filter(a => a.disciplina === selectedDisciplina);
+  }, [data?.filtrosDisponiveis?.assuntos, selectedDisciplina]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 w-full space-y-6">
@@ -507,7 +551,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
           </p>
         </div>
 
-        {/* Sub-abas Ampliadas */}
+        {/* Sub-abas Principais */}
         <div className="flex items-center gap-1.5 p-1.5 bg-white/[0.03] border border-white/[0.08] rounded-2xl">
           <button
             onClick={() => setActiveSubTab('kpis')}
@@ -549,7 +593,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
         </div>
       </div>
 
-      {/* CONTEÚDO DA SUB-ABA: GERENCIAR TESTES (Apagar simulados descartáveis) */}
+      {/* SUB-ABA: GERENCIAR TESTES */}
       {activeSubTab === 'simulados' && (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08]">
@@ -617,11 +661,10 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                     </div>
 
                     <div className="flex items-center gap-5 flex-shrink-0">
-                      {/* Métricas do Simulado */}
                       <div className="text-right">
                         <div className="flex items-center gap-2.5 justify-end">
                           <span className={`text-base sm:text-lg font-bold ${
-                            taxa >= 70 ? 'text-emerald-400' : taxa >= 50 ? 'text-indigo-400' : 'text-rose-400'
+                            taxa >= 75 ? 'text-emerald-400' : taxa >= 60 ? 'text-indigo-400' : 'text-rose-400'
                           }`}>
                             {taxa}%
                           </span>
@@ -634,14 +677,27 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                         </span>
                       </div>
 
-                      {/* Botão de Excluir */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedScope('simulado');
+                          setSelectedSimuladoId(String(sim.id));
+                          setActiveSubTab('kpis');
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                        title="Ver análise completa deste teste no dashboard"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Ver no Dashboard</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handleDeleteSimulado(sim.id)}
-                        className="p-3 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25 transition-all cursor-pointer"
-                        title="Apagar este simulado para não constar nas métricas"
+                        className="p-2.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25 transition-all cursor-pointer"
+                        title="Apagar este simulado das estatísticas"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -652,25 +708,215 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
         </div>
       )}
 
-      {/* CONTEÚDO DA SUB-ABA: DASHBOARD DE KPIS */}
+      {/* SUB-ABA: DASHBOARD INTERATIVO */}
       {activeSubTab === 'kpis' && (
-        <>
+        <div className="space-y-6">
+          {/* BARRA DE ESCOPOS & FILTROS (MINIMALISTA) */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#121929] border border-white/[0.08] space-y-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Seletor de Escopo */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mr-1">
+                  <Filter className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Escopo:</span>
+                </span>
+
+                <button
+                  onClick={() => {
+                    setSelectedScope('geral');
+                    setSelectedSimuladoId('');
+                    setSelectedDisciplina('');
+                    setSelectedAssunto('');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    selectedScope === 'geral'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                  }`}
+                >
+                  🌐 Geral (Global)
+                </button>
+
+                <button
+                  onClick={() => {
+                    setSelectedScope('simulado');
+                    if (!selectedSimuladoId && data?.filtrosDisponiveis?.simulados?.[0]) {
+                      setSelectedSimuladoId(String(data.filtrosDisponiveis.simulados[0].id));
+                    }
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    selectedScope === 'simulado'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                  }`}
+                >
+                  📝 Teste Individual
+                </button>
+
+                <button
+                  onClick={() => {
+                    setSelectedScope('disciplina');
+                    if (!selectedDisciplina && data?.filtrosDisponiveis?.disciplinas?.[0]) {
+                      setSelectedDisciplina(data.filtrosDisponiveis.disciplinas[0]);
+                    }
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    selectedScope === 'disciplina'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                  }`}
+                >
+                  📚 Por Matéria
+                </button>
+
+                <button
+                  onClick={() => {
+                    setSelectedScope('assunto');
+                    if (!selectedAssunto && data?.filtrosDisponiveis?.assuntos?.[0]) {
+                      setSelectedAssunto(data.filtrosDisponiveis.assuntos[0].assunto);
+                      setSelectedDisciplina(data.filtrosDisponiveis.assuntos[0].disciplina);
+                    }
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    selectedScope === 'assunto'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                  }`}
+                >
+                  🎯 Por Assunto
+                </button>
+              </div>
+
+              {/* Seletor de Modo (Estudo vs Simulado) */}
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <span className="hidden sm:inline">Modo:</span>
+                <select
+                  value={selectedModo}
+                  onChange={(e) => setSelectedModo(e.target.value)}
+                  className="bg-white/[0.04] text-slate-200 border border-white/[0.08] rounded-xl px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="TODOS" className="bg-[#121929]">Todos os Modos</option>
+                  <option value="estudo" className="bg-[#121929]">Modo Estudo</option>
+                  <option value="simulado" className="bg-[#121929]">Simulado Prova</option>
+                </select>
+              </div>
+            </div>
+
+            {/* SELETORES CONTEXTUAIS CONFORME O ESCOPO SELECIONADO */}
+            {selectedScope === 'simulado' && (
+              <div className="pt-2.5 border-t border-white/[0.06] flex flex-wrap items-center gap-3">
+                <label className="text-xs text-slate-400 font-medium">Selecione o Simulado:</label>
+                <select
+                  value={selectedSimuladoId}
+                  onChange={(e) => setSelectedSimuladoId(e.target.value)}
+                  className="bg-white/[0.04] text-slate-100 border border-indigo-500/40 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold focus:outline-none focus:border-indigo-400 cursor-pointer min-w-[280px]"
+                >
+                  {(data?.filtrosDisponiveis?.simulados || []).map((s) => (
+                    <option key={s.id} value={s.id} className="bg-[#121929]">
+                      Simulado #{s.id} — {s.disciplina} ({Math.round(s.taxa_acerto || 0)}%) • {s.data_hora}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {selectedScope === 'disciplina' && (
+              <div className="pt-2.5 border-t border-white/[0.06] flex flex-wrap items-center gap-3">
+                <label className="text-xs text-slate-400 font-medium">Selecione a Matéria:</label>
+                <select
+                  value={selectedDisciplina}
+                  onChange={(e) => setSelectedDisciplina(e.target.value)}
+                  className="bg-white/[0.04] text-slate-100 border border-indigo-500/40 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold focus:outline-none focus:border-indigo-400 cursor-pointer min-w-[260px]"
+                >
+                  {(data?.filtrosDisponiveis?.disciplinas || []).map((disc) => (
+                    <option key={disc} value={disc} className="bg-[#121929]">
+                      {disc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {selectedScope === 'assunto' && (
+              <div className="pt-2.5 border-t border-white/[0.06] flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-400 font-medium">Matéria:</label>
+                  <select
+                    value={selectedDisciplina}
+                    onChange={(e) => {
+                      setSelectedDisciplina(e.target.value);
+                      setSelectedAssunto('');
+                    }}
+                    className="bg-white/[0.04] text-slate-100 border border-white/[0.1] rounded-xl px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-400 cursor-pointer"
+                  >
+                    <option value="" className="bg-[#121929]">Todas as Matérias</option>
+                    {(data?.filtrosDisponiveis?.disciplinas || []).map((d) => (
+                      <option key={d} value={d} className="bg-[#121929]">{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-400 font-medium">Tópico / Assunto:</label>
+                  <select
+                    value={selectedAssunto}
+                    onChange={(e) => setSelectedAssunto(e.target.value)}
+                    className="bg-white/[0.04] text-slate-100 border border-indigo-500/40 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold focus:outline-none focus:border-indigo-400 cursor-pointer min-w-[260px]"
+                  >
+                    <option value="" className="bg-[#121929]">Selecione um Assunto...</option>
+                    {availableAssuntos.map((a, idx) => (
+                      <option key={idx} value={a.assunto} className="bg-[#121929]">
+                        {a.assunto} ({a.total} q)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
           {!hasData ? (
             <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-14 text-center max-w-xl mx-auto">
               <Target className="w-14 h-14 text-indigo-400 mx-auto mb-4 opacity-80" />
-              <h2 className="text-xl font-bold text-slate-100 mb-2">Nenhum simulado registrado no SQLite</h2>
+              <h2 className="text-xl font-bold text-slate-100 mb-2">Nenhum dado encontrado para este filtro</h2>
               <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-                Faça seu primeiro treino de questões para gerar métricas de aproveitamento, ritmo e pontos fracos.
+                Tente selecionar outro simulado, matéria ou volte para o filtro &quot;🌐 Geral&quot;.
               </p>
+              <button
+                onClick={() => {
+                  setSelectedScope('geral');
+                  setSelectedSimuladoId('');
+                  setSelectedDisciplina('');
+                  setSelectedAssunto('');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold transition-all cursor-pointer"
+              >
+                Restaurar Visão Geral
+              </button>
             </div>
           ) : (
-            <div className="space-y-8">
-              {/* 1. CARDS DE KPIS ESSENCIAIS COM NÚMEROS GRANDES */}
+            <>
+              {/* 1. CARDS DE KPIS ESSENCIAIS COM NÚMEROS GRANDES (CONFORME FILTRO) */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08]">
-                  <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block mb-1.5">
-                    Aproveitamento
-                  </span>
+                <div 
+                  onClick={() => handleInspectChart({
+                    tipo: 'kpi',
+                    titulo: 'Aproveitamento Geral no Filtro',
+                    taxa: data.global.taxaGeral,
+                    acertos: data.global.totalAcertos,
+                    total: data.global.totalQuestoes,
+                    feedback: data.global.taxaGeral >= 75
+                      ? `Com ${data.global.taxaGeral}% de acertos nesta seleção (${data.global.totalAcertos}/${data.global.totalQuestoes}), você está acima da nota de corte projetada (75%) da banca AOCP.`
+                      : `Com ${data.global.taxaGeral}% de aproveitamento, você está abaixo do corte ideal (75%). Reforce a memorização de exceções e prazos legais.`
+                  })}
+                  className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08] hover:border-white/[0.2] transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block">
+                      Aproveitamento
+                    </span>
+                    <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">Ver Feedback</span>
+                  </div>
                   <div className="flex items-baseline gap-2">
                     <span className={`text-3xl sm:text-4xl lg:text-5xl font-black ${
                       data.global.taxaGeral >= 75 ? 'text-emerald-400' : data.global.taxaGeral >= 60 ? 'text-indigo-400' : 'text-rose-400'
@@ -683,19 +929,40 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                   </div>
                 </div>
 
-                <div className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08]">
-                  <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block mb-1.5">
-                    Pacing Médio
-                  </span>
+                <div 
+                  onClick={() => handleInspectChart({
+                    tipo: 'pacing',
+                    titulo: 'Gestão de Tempo e Pacing',
+                    tempoMedio: data.global.tempoMedioPorQuestao,
+                    feedback: data.global.tempoMedioPorQuestao <= 60
+                      ? `Ritmo excelente de ${data.global.tempoMedioPorQuestao}s por questão! Na PMPE o limite recomendado é 150s (2m30s). Você economiza tempo precioso para a Redação e RLM.`
+                      : data.global.tempoMedioPorQuestao <= 120
+                      ? `Ritmo equilibrado de ${data.global.tempoMedioPorQuestao}s por questão, dentro da zona de segurança do concurso da PMPE.`
+                      : `Atenção: ritmo lento de ${data.global.tempoMedioPorQuestao}s por questão. Risco de faltar tempo para preencher o gabarito ou fazer a redação da PMPE.`
+                  })}
+                  className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08] hover:border-white/[0.2] transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block">
+                      Pacing Médio
+                    </span>
+                    <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">Ver Feedback</span>
+                  </div>
                   <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-100 font-mono">
                     {Math.floor(data.global.tempoMedioPorQuestao / 60)}m {data.global.tempoMedioPorQuestao % 60}s
                   </div>
                 </div>
 
-                <div className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08]">
-                  <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block mb-1.5">
-                    Caderno de Erros
-                  </span>
+                <div 
+                  onClick={() => setActiveSubTab('erros')}
+                  className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08] hover:border-amber-500/30 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block">
+                      Caderno de Erros
+                    </span>
+                    <span className="text-[10px] text-amber-400">Abrir</span>
+                  </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-amber-400">
                       {data.cadernoErros.pendentes_hoje}
@@ -704,10 +971,21 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                   </div>
                 </div>
 
-                <div className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08]">
-                  <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block mb-1.5">
-                    Nota Projetada
-                  </span>
+                <div 
+                  onClick={() => handleInspectChart({
+                    tipo: 'nota',
+                    titulo: 'Projeção para Prova Objetiva PMPE',
+                    nota: Math.round((data.global.taxaGeral / 100) * 60),
+                    feedback: `Com base em 60 questões da prova oficial de Soldado da PMPE, sua taxa atual (${data.global.taxaGeral}%) projeta ${Math.round((data.global.taxaGeral / 100) * 60)} acertos. O corte histórico para convocação ao TAF varia entre 40 e 46 pontos.`
+                  })}
+                  className="p-5 sm:p-6 rounded-3xl bg-[#121929] border border-white/[0.08] hover:border-white/[0.2] transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider block">
+                      Nota Projetada
+                    </span>
+                    <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">Ver Feedback</span>
+                  </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-indigo-400">
                       {Math.round((data.global.taxaGeral / 100) * 60)}
@@ -717,12 +995,529 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                 </div>
               </div>
 
-              {/* 2. DIAGNÓSTICO TÁTICO COM GEMINI */}
+              {/* PAINEL DE FEEDBACK TÁTICO INTERATIVO (QUANDO O USUÁRIO CLICA EM QUALQUER ELEMENTO DO GRÁFICO) */}
+              {inspectedItem && (
+                <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-indigo-950/40 via-[#131b2e] to-[#0f1422] border border-indigo-500/30 shadow-2xl animate-in fade-in slide-in-from-top-2 relative">
+                  <button
+                    onClick={() => setInspectedItem(null)}
+                    className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] cursor-pointer"
+                    title="Fechar Feedback"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex items-start gap-3.5 pr-8">
+                    <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-300 shrink-0 mt-0.5">
+                      <Sparkles className="w-5 h-5 text-indigo-300" />
+                    </div>
+
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                          Feedback Interativo do Gráfico
+                        </span>
+                        {inspectedItem.taxa !== undefined && (
+                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                            inspectedItem.taxa >= 75
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : inspectedItem.taxa >= 60
+                              ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                              : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                          }`}>
+                            {inspectedItem.taxa}% de Precisão
+                          </span>
+                        )}
+                        {inspectedItem.tempoMedio !== undefined && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-white/[0.05] text-slate-300 font-mono">
+                            ⏱ {inspectedItem.tempoMedio}s/q
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="text-base sm:text-lg font-bold text-slate-100">
+                        {inspectedItem.titulo}
+                      </h4>
+
+                      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-medium">
+                        {inspectedItem.feedback}
+                      </p>
+
+                      {inspectedItem.dica && (
+                        <div className="p-3 rounded-xl bg-amber-500/[0.08] border border-amber-500/20 text-xs sm:text-sm text-amber-200 mt-2">
+                          <span className="font-bold text-amber-300 block mb-0.5">💡 Dica Estratégica da Banca:</span>
+                          {inspectedItem.dica}
+                        </div>
+                      )}
+
+                      {inspectedItem.acao && (
+                        <div className="pt-2">
+                          <button
+                            onClick={inspectedItem.acao}
+                            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                          >
+                            <span>{inspectedItem.acaoLabel || 'Filtrar por este item'}</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SE VISÃO FOR TESTE INDIVIDUAL ESPECÍFICO: GRADE DE QUESTÕES DO SIMULADO */}
+              {selectedScope === 'simulado' && data?.simuladoDetalhes && (
+                <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-indigo-500/30 space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-bold text-indigo-400">Simulado #{data.simuladoDetalhes.id}</span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-white/[0.05] text-slate-300">
+                          {data.simuladoDetalhes.modo === 'simulado' ? 'Simulado Prova' : 'Modo Estudo'}
+                        </span>
+                        <span className="text-slate-500">•</span>
+                        <span className="text-xs text-slate-400 font-mono">{data.simuladoDetalhes.data_hora}</span>
+                      </div>
+                      <h3 className="text-base sm:text-lg font-bold text-slate-100">
+                        {data.simuladoDetalhes.disciplina}
+                        {data.simuladoDetalhes.assunto && <span className="text-slate-400"> — {data.simuladoDetalhes.assunto}</span>}
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right font-mono">
+                        <div className="text-lg font-bold text-emerald-400">
+                          {Math.round(data.simuladoDetalhes.taxa_acerto || 0)}%
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {data.simuladoDetalhes.acertos} / {data.simuladoDetalhes.total_questoes} acertos
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Grid Interativo de Questões do Teste */}
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
+                      Questões do Teste (Clique para inspecionar gabarito e resposta):
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
+                      {(data?.questoesDoSimulado || []).map((q, idx) => {
+                        const isAcertou = q.acertou === 1;
+                        const isSelected = inspectedQuestao?.id === q.id;
+
+                        return (
+                          <button
+                            key={q.id || idx}
+                            onClick={() => setInspectedQuestao(isSelected ? null : q)}
+                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                              isSelected
+                                ? 'border-white bg-white/[0.1] shadow-lg ring-2 ring-indigo-500'
+                                : isAcertou
+                                ? 'bg-emerald-500/[0.06] border-emerald-500/20 hover:border-emerald-500/40 text-emerald-300'
+                                : 'bg-rose-500/[0.06] border-rose-500/20 hover:border-rose-500/40 text-rose-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold">Q{q.questao_numero || idx + 1}</span>
+                              <span className="text-[10px] font-bold">
+                                {isAcertou ? '✓' : '✕'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] font-mono opacity-80">
+                              {q.tempo_segundos ? `${q.tempo_segundos}s` : '0s'}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Detalhe da Questão Inspecionada do Teste */}
+                  {inspectedQuestao && (
+                    <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-md font-bold ${
+                            inspectedQuestao.acertou === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                          }`}>
+                            {inspectedQuestao.acertou === 1 ? 'ACERTOU' : 'ERROU'}
+                          </span>
+                          <span className="text-slate-400 font-mono">
+                            Sua resposta: ({inspectedQuestao.resposta_usuario || '—'}) | Gabarito: ({inspectedQuestao.gabarito})
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setInspectedQuestao(null)}
+                          className="text-slate-400 hover:text-white cursor-pointer text-xs"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+
+                      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-medium">
+                        {inspectedQuestao.enunciado}
+                      </p>
+
+                      {inspectedQuestao.explicacao_json && (
+                        <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs text-slate-300 space-y-1">
+                          <span className="font-bold text-indigo-400 block">Fundamentação:</span>
+                          <p>
+                            {typeof inspectedQuestao.explicacao_json === 'string'
+                              ? (() => {
+                                  try {
+                                    const parsed = JSON.parse(inspectedQuestao.explicacao_json);
+                                    return parsed.correta || parsed.explicacao || inspectedQuestao.explicacao_json;
+                                  } catch {
+                                    return inspectedQuestao.explicacao_json;
+                                  }
+                                })()
+                              : inspectedQuestao.explicacao_json.correta}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 2. GRÁFICO 1: EVOLUÇÃO E ACERTOS AO LONGO DOS TESTES (INTERATIVO COM CLIQUE) */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-indigo-400" />
+                      <span>Curva de Evolução & Desempenho nos Simulados</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Clique em qualquer ponto do gráfico para ver o feedback detalhado daquele teste
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-xs font-medium">
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                      <span>Sua Taxa (%)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-emerald-400">
+                      <span className="w-4 h-0.5 border-t-2 border-dashed border-emerald-400" />
+                      <span>Corte PMPE (75%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {chartPoints.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400">
+                    Realize simulados para traçar sua curva de evolução histórica.
+                  </div>
+                ) : (
+                  <div className="relative pt-2">
+                    <div className="w-full overflow-x-auto">
+                      <svg
+                        viewBox="0 0 680 180"
+                        className="w-full h-44 sm:h-52 overflow-visible select-none"
+                      >
+                        <defs>
+                          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.35" />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Linhas de Grade discretas */}
+                        <line x1="40" y1="25" x2="640" y2="25" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+                        <line x1="40" y1="87" x2="640" y2="87" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+                        <line x1="40" y1="155" x2="640" y2="155" stroke="rgba(255,255,255,0.05)" />
+
+                        {/* Linha de Corte PMPE (75%) = y ~ 57.5 */}
+                        <line
+                          x1="40"
+                          y1="57.5"
+                          x2="640"
+                          y2="57.5"
+                          stroke="#10b981"
+                          strokeWidth="1.5"
+                          strokeDasharray="4 4"
+                          opacity="0.75"
+                        />
+                        <text x="645" y="61" fill="#10b981" fontSize="10" fontWeight="bold">
+                          75%
+                        </text>
+
+                        {/* Linha de Área Preenchida */}
+                        {chartPoints.length > 1 && (
+                          <polygon
+                            points={`
+                              ${chartPoints[0].x},155 
+                              ${chartPoints.map(p => `${p.x},${p.y}`).join(' ')} 
+                              ${chartPoints[chartPoints.length - 1].x},155
+                            `}
+                            fill="url(#chartGradient)"
+                          />
+                        )}
+
+                        {/* Linha Conectora dos Pontos */}
+                        {chartPoints.length > 1 && (
+                          <polyline
+                            points={chartPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                            fill="none"
+                            stroke="#818cf8"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        )}
+
+                        {/* Pontos Clicáveis Interativos */}
+                        {chartPoints.map((pt, i) => {
+                          const isSuccess = pt.taxa >= 75;
+                          return (
+                            <g
+                              key={i}
+                              className="cursor-pointer group"
+                              onClick={() => handleInspectChart({
+                                tipo: 'simulado',
+                                titulo: `Simulado #${pt.sim.id} — ${pt.sim.disciplina}`,
+                                taxa: Math.round(pt.taxa),
+                                tempoMedio: pt.sim.tempo_medio_questao,
+                                feedback: isSuccess
+                                  ? `Excelente resultado! Você atingiu ${Math.round(pt.taxa)}% de acertos (${pt.sim.acertos}/${pt.sim.total_questoes} questões) no Simulado #${pt.sim.id}. Este aproveitamento coloca você na faixa dos aprovados no TAF.`
+                                  : `No Simulado #${pt.sim.id}, você acertou ${pt.sim.acertos} de ${pt.sim.total_questoes} questões (${Math.round(pt.taxa)}%). Ficou abaixo da nota de corte ideal de 75%. Indicamos revisar o caderno de erros deste simulado.`,
+                                dica: pt.sim.assunto && pt.sim.assunto !== 'Tópicos gerais'
+                                  ? `O assunto prioritário trabalhado foi "${pt.sim.assunto}". Fique atento às pegadinhas da banca AOCP sobre este tema.`
+                                  : 'Mantenha o ritmo de resolução para consolidar o tempo de prova.',
+                                acaoLabel: 'Filtrar Dashboard por Este Teste',
+                                acao: () => {
+                                  setSelectedScope('simulado');
+                                  setSelectedSimuladoId(String(pt.sim.id));
+                                }
+                              })}
+                            >
+                              {/* Círculo invisível maior para facilitar o clique no mobile */}
+                              <circle cx={pt.x} cy={pt.y} r="16" fill="transparent" />
+
+                              {/* Ponto Visual */}
+                              <circle
+                                cx={pt.x}
+                                cy={pt.y}
+                                r="6"
+                                className={`transition-all duration-200 ${
+                                  isSuccess ? 'fill-emerald-400 stroke-emerald-950' : 'fill-indigo-400 stroke-indigo-950'
+                                } group-hover:r-8 group-hover:stroke-white`}
+                                strokeWidth="2.5"
+                              />
+
+                              {/* Label de Porcentagem acima do Ponto */}
+                              <text
+                                x={pt.x}
+                                y={pt.y - 12}
+                                textAnchor="middle"
+                                fill="#f1f5f9"
+                                fontSize="11"
+                                fontWeight="bold"
+                                className="group-hover:fill-indigo-300 transition-colors"
+                              >
+                                {Math.round(pt.taxa)}%
+                              </text>
+
+                              {/* Label do Simulado abaixo do Ponto */}
+                              <text
+                                x={pt.x}
+                                y="172"
+                                textAnchor="middle"
+                                fill="#94a3b8"
+                                fontSize="10"
+                                fontFamily="monospace"
+                              >
+                                #{pt.sim.id}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. GRÁFICO 2: APROVEITAMENTO POR DISCIPLINA (INTERATIVO COM CLIQUE) */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+                      <BookOpen className="w-5 h-5 text-indigo-400" />
+                      <span>Aproveitamento por Disciplina (Clique para feedback)</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Barras com precisão e ritmo. Clique em uma matéria para ver o diagnóstico estratégico
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  {(data.disciplinas || []).map((disc) => {
+                    const isCompetitivo = disc.taxa >= 75;
+                    const isRegular = disc.taxa >= 60 && disc.taxa < 75;
+
+                    return (
+                      <div
+                        key={disc.disciplina}
+                        onClick={() => handleInspectChart({
+                          tipo: 'disciplina',
+                          titulo: disc.disciplina,
+                          taxa: disc.taxa,
+                          acertos: disc.acertos,
+                          total: disc.total,
+                          tempoMedio: disc.tempo_medio,
+                          feedback: isCompetitivo
+                            ? `Você possui aproveitamento consolidado de ${disc.taxa}% em ${disc.disciplina} (${disc.acertos}/${disc.total} questões). Seu ritmo médio é de ${disc.tempo_medio || 0}s/q. Esta matéria pode ser considerada sua alavanca de pontos na PMPE.`
+                            : isRegular
+                            ? `Em ${disc.disciplina}, sua taxa de acerto é de ${disc.taxa}%. Você está muito próximo da nota de corte (75%). Ajustar a literalidade de artigos ou enunciados pode garantir 2 a 3 pontos adicionais.`
+                            : `Atenção Crítica em ${disc.disciplina}: aproveitamento de apenas ${disc.taxa}%. Para o concurso da PMPE, zerar ou ir mal nesta matéria compromete a classificação final. Recomendamos treino focado imediatamente.`,
+                          dica: `A banca Instituto AOCP elabora questões de ${disc.disciplina} priorizando a literalidade da lei seca e pegadinhas em prazos e competências.`,
+                          acaoLabel: `Filtrar Dashboard por ${disc.disciplina}`,
+                          acao: () => {
+                            setSelectedScope('disciplina');
+                            setSelectedDisciplina(disc.disciplina);
+                          }
+                        })}
+                        className="p-3.5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.04] hover:border-indigo-500/30 transition-all cursor-pointer group"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm sm:text-base font-semibold mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-100 group-hover:text-indigo-300 transition-colors">
+                              {disc.disciplina}
+                            </span>
+                            {disc.tendencia !== null && disc.tendencia !== undefined && (
+                              <span className={`text-xs px-2 py-0.5 rounded flex items-center gap-0.5 font-mono ${
+                                disc.tendencia >= 0 ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'
+                              }`}>
+                                {disc.tendencia >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                {disc.tendencia > 0 ? `+${disc.tendencia}%` : `${disc.tendencia}%`}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3 text-xs sm:text-sm font-mono">
+                            <span className={`font-bold ${
+                              isCompetitivo ? 'text-emerald-400' : isRegular ? 'text-indigo-400' : 'text-rose-400'
+                            }`}>
+                              {disc.taxa}% ({disc.acertos}/{disc.total})
+                            </span>
+                            <span className="text-slate-400">
+                              ⏱ {disc.tempo_medio || 0}s/q
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Barra de Progresso Visual */}
+                        <div className="w-full h-3 rounded-full bg-white/[0.04] overflow-hidden p-0.5 border border-white/[0.06]">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              isCompetitivo
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                                : isRegular
+                                ? 'bg-gradient-to-r from-indigo-500 to-indigo-400'
+                                : 'bg-gradient-to-r from-rose-500 to-red-400'
+                            }`}
+                            style={{ width: `${Math.max(4, Math.min(100, disc.taxa))}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. GRÁFICO 3: RADAR & MATRIZ DE ASSUNTOS E TÓPICOS (INTERATIVO COM CLIQUE) */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-indigo-400" />
+                      <span>Matriz de Tópicos e Assuntos (Clique para inspecionar)</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Classificação por faixa de risco: 🟢 Seguro (≥75%) • 🟡 Atenção (60-74%) • 🔴 Crítico (&lt;60%)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                  {(data.assuntos || []).slice(0, 12).map((topico, idx) => {
+                    const isSafe = topico.taxa >= 75;
+                    const isMid = topico.taxa >= 60 && topico.taxa < 75;
+
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => handleInspectChart({
+                          tipo: 'assunto',
+                          titulo: topico.assunto,
+                          taxa: topico.taxa,
+                          acertos: topico.acertos,
+                          total: topico.total,
+                          tempoMedio: topico.tempo_medio,
+                          feedback: isSafe
+                            ? `Tópico dominado com ${topico.taxa}% de precisão (${topico.acertos}/${topico.total}). Mantenha revisões espaçadas de 15 em 15 dias.`
+                            : isMid
+                            ? `Tópico em zona de transição (${topico.taxa}% de acertos). Os erros costumam ser em detalhes de texto ou palavras restritivas ("sempre", "nunca").`
+                            : `Tópico Crítico com taxa de ${topico.taxa}% e ${topico.erros} erro(s). É altamente provável a cobrança deste assunto na prova de Soldado da PMPE.`,
+                          dica: `A banca AOCP costuma cobrar o tema "${topico.assunto}" exigindo memorização de parágrafos e incisos exatos.`,
+                          acaoLabel: `Treinar questões de ${topico.assunto}`,
+                          acao: () => {
+                            if (onStartTargetedQuiz) {
+                              onStartTargetedQuiz(topico.disciplina, topico.assunto);
+                            } else {
+                              setSelectedScope('assunto');
+                              setSelectedDisciplina(topico.disciplina);
+                              setSelectedAssunto(topico.assunto);
+                            }
+                          }
+                        })}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+                          isSafe
+                            ? 'bg-emerald-500/[0.04] border-emerald-500/20 hover:border-emerald-500/50'
+                            : isMid
+                            ? 'bg-indigo-500/[0.04] border-indigo-500/20 hover:border-indigo-500/50'
+                            : 'bg-rose-500/[0.04] border-rose-500/20 hover:border-rose-500/50'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between text-xs mb-1.5">
+                            <span className="text-slate-400 font-medium truncate max-w-[140px]">
+                              {topico.disciplina}
+                            </span>
+                            <span className={`font-bold font-mono px-2 py-0.5 rounded ${
+                              isSafe
+                                ? 'bg-emerald-500/15 text-emerald-300'
+                                : isMid
+                                ? 'bg-indigo-500/15 text-indigo-300'
+                                : 'bg-rose-500/15 text-rose-300'
+                            }`}>
+                              {topico.taxa}%
+                            </span>
+                          </div>
+
+                          <h4 className="text-sm font-bold text-slate-100 line-clamp-2">
+                            {topico.assunto}
+                          </h4>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-slate-400 font-mono mt-3 pt-2 border-t border-white/[0.04]">
+                          <span>{topico.acertos} / {topico.total} acertos</span>
+                          <span>⏱ {topico.tempo_medio || 0}s/q</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 5. DIAGNÓSTICO TÁTICO COM GEMINI & MENTOR PEDAGÓGICO */}
               <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] relative overflow-hidden shadow-2xl space-y-6">
-                {/* Glow decorativo de fundo */}
                 <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
-                {/* Header do Mentor */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.06] relative z-10">
                   <div className="flex items-start sm:items-center gap-3">
                     <div className="p-2.5 rounded-2xl bg-amber-400/10 text-amber-300 border border-amber-400/20 shrink-0">
@@ -771,7 +1566,6 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                   </div>
                 </div>
 
-                {/* Notificação/Aviso informativo se houver */}
                 {diagnosticNotice && (
                   <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs sm:text-sm flex items-center justify-between gap-3 animate-in fade-in">
                     <div className="flex items-center gap-2">
@@ -784,7 +1578,6 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                   </div>
                 )}
 
-                {/* Estado de Carregamento */}
                 {loadingDiagnostic && (
                   <div className="py-10 px-6 rounded-2xl bg-indigo-950/20 border border-indigo-500/20 text-center space-y-3 animate-pulse">
                     <div className="w-10 h-10 border-3 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -792,15 +1585,14 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                       O Mentor IA está analisando seu histórico e cruzando com a banca AOCP...
                     </h4>
                     <p className="text-xs text-slate-400 max-w-lg mx-auto">
-                      Examinando tempo médio por questão, taxa de assertividade por matéria, questões com dúvida e caderno de erros para formular seu plano tático.
+                      Examinando tempo médio por questão, taxa de assertividade por matéria e caderno de erros.
                     </p>
                   </div>
                 )}
 
-                {/* Conteúdo Rico do Diagnóstico */}
                 {!loadingDiagnostic && diagnostic && (
                   <div className="space-y-6">
-                    {/* 1. Resumo Executivo do Mentor */}
+                    {/* Resumo Executivo do Mentor */}
                     {diagnostic.resumoExecutivo && (
                       <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-[#141d33] to-[#121929] border border-indigo-500/25 flex items-start gap-3.5">
                         <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0 mt-0.5">
@@ -817,7 +1609,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                       </div>
                     )}
 
-                    {/* 2. Grid de 4 KPIs Táticos do Mentor */}
+                    {/* Grid de KPIs Táticos */}
                     {Array.isArray(diagnostic.kpis) && diagnostic.kpis.length > 0 && (
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                         {diagnostic.kpis.map((kpi, idx) => (
@@ -854,7 +1646,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                       </div>
                     )}
 
-                    {/* 3. Hero Card: Plano de Ataque para Hoje */}
+                    {/* Plano de Ataque */}
                     {diagnostic.planoDeAtaque && (
                       <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-indigo-950/50 via-[#131b2e] to-[#0f1422] border border-indigo-500/30 space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -863,7 +1655,7 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                               <Target className="w-4 h-4" />
                             </span>
                             <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
-                              Plano de Ataque para Hoje
+                              Plano de Ataque Imediato
                             </span>
                           </div>
                           {diagnostic.planoDeAtaque.prioridade && (
@@ -916,166 +1708,15 @@ RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
                         )}
                       </div>
                     )}
-
-                    {/* 4. Colunas: Pontos de Alerta vs. Pontos Fortes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Pontos de Atenção */}
-                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
-                        <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
-                          <AlertTriangle className="w-4 h-4" />
-                          <span>Pontos de Alerta & Riscos</span>
-                        </div>
-                        {Array.isArray(diagnostic.pontosDeAtencao) && diagnostic.pontosDeAtencao.length > 0 ? (
-                          <div className="space-y-2.5">
-                            {diagnostic.pontosDeAtencao.map((alerta, i) => (
-                              <div key={i} className="p-3 rounded-xl bg-rose-500/[0.06] border border-rose-500/15 text-xs sm:text-sm">
-                                <div className="flex items-center justify-between font-semibold text-rose-300 mb-1">
-                                  <span>{alerta.disciplina} • {alerta.topico}</span>
-                                </div>
-                                <p className="text-slate-300">{alerta.problema}</p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400">Nenhum ponto crítico grave registrado no momento.</p>
-                        )}
-                      </div>
-
-                      {/* Pontos Fortes */}
-                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
-                        <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Pontos Fortes & Consolidados</span>
-                        </div>
-                        {Array.isArray(diagnostic.pontosFortes) && diagnostic.pontosFortes.length > 0 ? (
-                          <div className="space-y-2">
-                            {diagnostic.pontosFortes.map((forte, i) => (
-                              <div key={i} className="p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 text-xs sm:text-sm text-slate-300 flex items-start gap-2">
-                                <span className="text-emerald-400 font-bold">✓</span>
-                                <span>{typeof forte === 'string' ? forte : forte.topico || forte.descricao}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400">Resolva mais simulados para consolidar sua base estatística.</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 5. Ações Práticas Recomendadas */}
-                    {Array.isArray(diagnostic.acoesRecomendadas) && diagnostic.acoesRecomendadas.length > 0 && (
-                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
-                        <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
-                          <Zap className="w-4 h-4" />
-                          <span>Ações Táticas Recomendadas</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {diagnostic.acoesRecomendadas.map((acao, i) => (
-                            <div
-                              key={i}
-                              className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between gap-3"
-                            >
-                              <div className="min-w-0">
-                                <div className="text-xs sm:text-sm font-semibold text-slate-200">
-                                  {acao.acao}
-                                </div>
-                                <div className="text-xs text-slate-400 mt-0.5">
-                                  {acao.impacto}
-                                </div>
-                              </div>
-                              {acao.tipoAcao === 'caderno' && (
-                                <button
-                                  onClick={() => setActiveSubTab('erros')}
-                                  className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold shrink-0 transition-colors cursor-pointer"
-                                >
-                                  Abrir Caderno
-                                </button>
-                              )}
-                              {acao.tipoAcao === 'treino' && onStartTargetedQuiz && (
-                                <button
-                                  onClick={() => onStartTargetedQuiz(
-                                    diagnostic.planoDeAtaque?.disciplina || '',
-                                    diagnostic.planoDeAtaque?.topico || ''
-                                  )}
-                                  className="px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-xs font-bold shrink-0 transition-colors cursor-pointer"
-                                >
-                                  Iniciar
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Estado Inicial (Antes de gerar pela primeira vez) */}
-                {!loadingDiagnostic && !diagnostic && (
-                  <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-4">
-                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                      Clique em <strong>&ldquo;Atualizar Diagnóstico&rdquo;</strong> para que a Inteligência Artificial examine seus dados reais no banco de dados SQLite e elabore um plano de estudos tático e personalizado.
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                      <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
-                        <span className="text-xs font-bold text-indigo-400 block flex items-center gap-1.5">
-                          <Target className="w-3.5 h-3.5" />
-                          <span>Zonas Críticas</span>
-                        </span>
-                        <p className="text-[11px] text-slate-400">Mapeamento dos tópicos onde você mais erra e precisam de blindagem.</p>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
-                        <span className="text-xs font-bold text-amber-400 block flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Calibração de Ritmo</span>
-                        </span>
-                        <p className="text-[11px] text-slate-400">Comparação do seu tempo médio por questão com a margem da PMPE (2m30s).</p>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
-                        <span className="text-xs font-bold text-emerald-400 block flex items-center gap-1.5">
-                          <Zap className="w-3.5 h-3.5" />
-                          <span>Plano Imediato</span>
-                        </span>
-                        <p className="text-[11px] text-slate-400">Indicação cirúrgica de qual matéria e tópico estudar hoje para subir sua nota.</p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
-
-              {/* 3. APROVEITAMENTO POR DISCIPLINA */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08]">
-                <h3 className="text-base sm:text-lg font-bold text-slate-100 mb-5">Aproveitamento por Disciplina</h3>
-                <div className="space-y-4">
-                  {(data.disciplinas || []).map((disc) => (
-                    <div key={disc.disciplina}>
-                      <div className="flex justify-between text-sm sm:text-base font-semibold mb-1.5">
-                        <span className="text-slate-200">{disc.disciplina}</span>
-                        <span className="text-slate-400 font-mono">
-                          {disc.acertos}/{disc.total} ({disc.taxa}%) • ⏱ {disc.tempo_medio || 0}s/q
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            disc.taxa >= 75 ? 'bg-emerald-500' : disc.taxa >= 60 ? 'bg-indigo-500' : 'bg-rose-500'
-                          }`}
-                          style={{ width: `${disc.taxa}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            </>
           )}
-        </>
+        </div>
       )}
 
-      {/* CONTEÚDO DA SUB-ABA: CADERNO DE ERROS (SISTEMA LEITNER) */}
+      {/* SUB-ABA: CADERNO DE ERROS (SISTEMA LEITNER) */}
       {activeSubTab === 'erros' && (
         <div className="space-y-5">
           <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] flex flex-wrap items-center justify-between gap-4">

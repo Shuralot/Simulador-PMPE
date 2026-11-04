@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, ChevronDown } from 'lucide-react';
-import { fetchContagemBanco, fetchDesempenho } from '../services/api';
+import { fetchContagemBanco, fetchPainel } from '../services/api';
 
 const CORE_DISCIPLINAS = [
   { id: 'Direito Constitucional', nome: 'Constitucional', chips: ['Artigo 5º', 'Remédios Constitucionais', 'Organização do Estado', 'Segurança Pública (Art. 144)'] },
@@ -30,7 +30,7 @@ export default function QuizConfig({
   revisoesVencidas = 0,
   onRevisar
 }) {
-  const [selectedDisciplinas, setSelectedDisciplinas] = useState(CORE_DISCIPLINAS.map((d) => d.id));
+  const [selectedDisciplinas, setSelectedDisciplinas] = useState([]);
   const [assunto, setAssunto] = useState('');
   const [quantidade, setQuantidade] = useState(8);
   const [modo, setModo] = useState('estudo'); // 'estudo' | 'simulado'
@@ -45,6 +45,7 @@ export default function QuizConfig({
     .slice(0, 6);
 
   useEffect(() => {
+    if (selectedDisciplinas.length === 0) return undefined;
     let isMounted = true;
     fetchContagemBanco({
       disciplinas: selectedDisciplinas,
@@ -72,7 +73,7 @@ export default function QuizConfig({
   const toggleDisciplina = (id) => {
     setAvisoFracos('');
     if (selectedDisciplinas.includes(id)) {
-      if (selectedDisciplinas.length > 1) setSelectedDisciplinas(selectedDisciplinas.filter((d) => d !== id));
+      setSelectedDisciplinas(selectedDisciplinas.filter((d) => d !== id));
     } else {
       setSelectedDisciplinas([...selectedDisciplinas, id]);
     }
@@ -82,18 +83,16 @@ export default function QuizConfig({
   const aplicarPontosFracos = async () => {
     setAvisoFracos('');
     try {
-      const data = await fetchDesempenho();
-      const zonas = (data?.zonasCriticas || [])
-        .filter((z) => CORE_DISCIPLINAS.some((d) => d.id === z.disciplina))
-        .sort((a, b) => b.erros - a.erros || a.taxa - b.taxa);
-      if (zonas.length === 0) {
-        setAvisoFracos('Ainda não há pontos fracos: responda mais questões para o app identificá-los.');
+      const { atacar } = await fetchPainel();
+      if (atacar.length === 0) {
+        setAvisoFracos('Ainda não há pontos fracos claros: responda mais questões para o app identificá-los.');
         return;
       }
-      const disciplinas = [...new Set(zonas.slice(0, 3).map((z) => z.disciplina))];
+      const top = atacar.slice(0, 3);
+      const disciplinas = [...new Set(top.map((t) => t.disciplina))];
       setSelectedDisciplinas(disciplinas);
-      setAssunto(disciplinas.length === 1 ? zonas[0].assunto : '');
-      setAvisoFracos(`Foco em: ${zonas.slice(0, 3).map((z) => `${z.assunto} (${z.taxa}%)`).join(', ')}`);
+      setAssunto(disciplinas.length === 1 ? top[0].topico : '');
+      setAvisoFracos(`Foco em: ${top.map((t) => `${t.topico} (${Math.round(t.taxa)}%)`).join(', ')}`);
     } catch {
       setAvisoFracos('Não foi possível carregar seu desempenho.');
     }
@@ -103,7 +102,7 @@ export default function QuizConfig({
 
   const handleStart = (e) => {
     e?.preventDefault();
-    if (loading) return;
+    if (loading || selectedDisciplinas.length === 0) return;
 
     if (sourceMode === 'local') {
       onStartLocalQuiz?.({
@@ -128,8 +127,8 @@ export default function QuizConfig({
   };
 
   return (
-    <div className="max-w-2xl mx-auto w-full px-4 sm:px-6">
-      <form onSubmit={handleStart} className="space-y-9 py-4">
+    <div className="max-w-4xl mx-auto w-full px-4 sm:px-6">
+      <form onSubmit={handleStart} className="max-w-2xl space-y-9 py-4">
         <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Treinar</h1>
 
         {/* Matérias */}
@@ -179,8 +178,8 @@ export default function QuizConfig({
         <div className="space-y-3">
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-4 rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-white text-lg font-semibold transition-colors flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-60"
+            disabled={loading || selectedDisciplinas.length === 0}
+            className="w-full py-4 rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-white text-lg font-semibold transition-colors flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
@@ -191,6 +190,8 @@ export default function QuizConfig({
               <>Começar <ArrowRight className="w-5 h-5" /></>
             )}
           </button>
+
+          {selectedDisciplinas.length === 0 && <p className="text-sm text-slate-500 text-center">Escolha ao menos uma matéria para começar.</p>}
 
           {revisoesVencidas > 0 && (
             <button

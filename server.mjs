@@ -12,6 +12,7 @@ import { parseGabaritoTexto } from './lib/gabarito.mjs';
 import { chunkLei } from './lib/leis.mjs';
 import { hojeLocal, somarDiasLocal } from './lib/tempo.mjs';
 import { registrarRotasEstudo } from './routes/estudo.mjs';
+import { registrarRotasPainel } from './routes/painel.mjs';
 import { registrarRotasVade } from './routes/vade.mjs';
 import { registrarRotasConfig } from './routes/config.mjs';
 import { abrirBanco } from './db/conexao.mjs';
@@ -2058,6 +2059,7 @@ app.post('/api/banco/resultado', (req, res) => {
 // Servidor escutando
 registrarRotasEstudo(app, db);
 registrarRotasVade(app, db);
+registrarRotasPainel(app, db);
 
 // Em produção (npm start) o próprio Express serve o front-end compilado
 const distDir = path.join(__dirname, 'dist');

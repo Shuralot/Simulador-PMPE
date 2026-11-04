@@ -198,3 +198,39 @@ test('plano: dias até a prova e sequência de estudo', async () => {
   assert.equal(calcularSequencia(['2026-11-03', '2026-11-02'], hoje), 2);
   assert.equal(calcularSequencia([], hoje), 0);
 });
+
+test('painel: prioriza pontos fracos com dados suficientes e separa dominados e não praticados', async () => {
+  const { montarPainel, estadoDoTopico, taxaSuavizada } = await import('../lib/painel.mjs');
+  const dia = '2026-11-04T12:00:00.000Z';
+  const r = (disciplina, topico, acertou) => ({ disciplina, topico, acertou: acertou ? 1 : 0, tempo_segundos: 30, data_hora: dia });
+  const respostas = [
+    // fraco: 1 acerto em 5
+    ...[1, 0, 0, 0, 0].map((a) => r('Direito Constitucional', 'Remédios Constitucionais', a)),
+    // dominado: 6 de 6
+    ...Array(6).fill(1).map((a) => r('Língua Portuguesa', 'Crase', a)),
+    // poucos dados: 1 erro em 1
+    r('Informática', 'Segurança da Informação', 0)
+  ];
+  const caderno = [
+    { disciplina: 'Direito Constitucional', topico: 'Remédios Constitucionais', status: 'PENDENTE', data_proxima_revisao: '2026-11-04', total_tentativas: 3, total_acertos: 0 },
+    { disciplina: 'Direito Constitucional', topico: 'Remédios Constitucionais', status: 'PENDENTE', data_proxima_revisao: '2026-11-08', total_tentativas: 1, total_acertos: 0 }
+  ];
+  const p = montarPainel({ respostas, caderno, hoje: '2026-11-04' });
+
+  assert.deepEqual(p.atacar.map((t) => t.topico), ['Remédios Constitucionais']);
+  assert.deepEqual(p.dominados.map((t) => t.topico), ['Crase']);
+  assert.ok(!p.atacar.some((t) => t.topico === 'Segurança da Informação'), '1 erro em 1 questão não é ponto fraco');
+  assert.ok(p.naoPraticados.length > 40);
+  assert.equal(p.revisar.vencidasHoje, 1);
+  assert.equal(p.revisar.proximos7, 1);
+  assert.equal(p.revisar.reincidentes, 1);
+  assert.equal(p.resumo.respondidas, 12);
+  assert.equal(p.dias.length, 14);
+  assert.equal(p.dias.at(-1).total, 12);
+  // disciplinas com pior taxa vêm primeiro e as sem dados por último
+  assert.equal(p.disciplinas[0].disciplina, 'Informática');
+  assert.equal(p.disciplinas.at(-1).total, 0);
+  // suavização: 0/1 fica longe de 0
+  assert.ok(taxaSuavizada(0, 1) > 0.4);
+  assert.equal(estadoDoTopico({ acertos: 0, total: 0, recentes: [] }), 'nao-praticado');
+});

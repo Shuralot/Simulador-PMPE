@@ -353,7 +353,7 @@ export default function App() {
       <main className={`flex-1 flex flex-col py-6 sm:py-8`}>
         {/* Notificação de Erro Global */}
         {errorMsg && (
-          <div className="max-w-5xl mx-auto mb-4 px-4 sm:px-6 w-full">
+          <div className="max-w-4xl mx-auto mb-4 px-4 sm:px-6 w-full">
             <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center justify-between">
               <span>{errorMsg}</span>
               <button
@@ -367,7 +367,7 @@ export default function App() {
         )}
 
         {noticeMsg && (
-          <div className="max-w-5xl mx-auto mb-4 px-4 sm:px-6 w-full">
+          <div className="max-w-4xl mx-auto mb-4 px-4 sm:px-6 w-full">
             <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm flex items-center justify-between">
               <span>{noticeMsg}</span>
               <button
@@ -384,7 +384,7 @@ export default function App() {
         {activeTab === 'quiz' && (
           <>
             {quizState === 'config' && (
-              <PlanoEstudo onEstudarTopico={handleStartTargetedQuiz} refreshKey={resultData} />
+              <PlanoEstudo refreshKey={resultData} />
             )}
 
             {quizState === 'config' && (

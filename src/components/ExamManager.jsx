@@ -7,7 +7,6 @@ import {
   FileText, 
   CheckCircle2, 
   AlertCircle, 
-  Building2,
   Sparkles,
   Search,
   Database,
@@ -182,27 +181,16 @@ export default function ExamManager({ exams, onRefreshExams }) {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 w-full space-y-6">
-      {/* Header Padronizado */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-2.5">
-            <Building2 className="w-6 h-6 text-indigo-400" />
-            <span>Banco de Provas & Acervo Oficial</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Cadernos de provas reais salvos no SQLite com extração de itens e busca semântica
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-300 px-3.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-          <Database className="w-4 h-4 text-emerald-400" />
-          <span><strong>{exams.length} provas</strong> cadastradas ({exams.filter(e => e.ativo).length} ativas)</span>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Provas</h1>
+        <p className="text-sm text-slate-500">
+          {exams.length} cadastradas, {exams.filter((e) => e.ativo).length} ativas. As questões extraídas daqui alimentam os treinos.
+        </p>
       </div>
 
       {/* Upload de Novo PDF */}
-      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-5 sm:p-7 shadow-xl shadow-black/30">
+      <div className="bg-white/[0.03] rounded-2xl p-5 sm:p-7">
         <h2 className="text-sm sm:text-base font-bold text-slate-100 mb-1 flex items-center gap-2">
           <UploadCloud className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
           <span>Importar Nova Prova (PDF)</span>
@@ -340,7 +328,7 @@ export default function ExamManager({ exams, onRefreshExams }) {
       )}
 
       {/* Busca Semântica por Cosseno */}
-      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-5 sm:p-7 shadow-xl shadow-black/30">
+      <div className="bg-white/[0.03] rounded-3xl p-5 sm:p-7">
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
             <Zap className="w-4 h-4" />

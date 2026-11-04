@@ -159,7 +159,7 @@ export default function VadeMecum() {
   const nomeDisciplina = (id) => DISCIPLINAS.find((d) => d.id === id)?.label || id;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 w-full space-y-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full space-y-8">
       <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Vade Mecum</h1>
 
       {/* Busca */}
@@ -223,7 +223,7 @@ export default function VadeMecum() {
       </div>
 
       {/* Conteúdo */}
-      <section className="space-y-4 min-w-0">
+      <section className="max-w-3xl space-y-4 min-w-0">
         {resultados !== null && (
           <>
             <p className="text-sm text-slate-400">

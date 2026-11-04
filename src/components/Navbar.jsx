@@ -32,7 +32,7 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount }
 
   return (
     <header className="sticky top-0 z-40 bg-[#0b0f19]/90 backdrop-blur-md border-b border-white/[0.06]">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         <button type="button" onClick={() => irPara('quiz')} className="text-lg font-bold text-slate-100 tracking-tight cursor-pointer whitespace-nowrap">
           Simulador PMPE
         </button>

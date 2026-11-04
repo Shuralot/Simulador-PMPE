@@ -306,3 +306,9 @@ export async function fetchFonteBase(fonte, { offset = 0, limite = 30 } = {}) {
   if (!res.ok) throw new Error('Falha ao carregar a fonte.');
   return await res.json();
 }
+
+export async function fetchPainel() {
+  const res = await fetch(`${API_BASE}/painel`);
+  if (!res.ok) throw new Error('Falha ao carregar o painel de desempenho.');
+  return await res.json();
+}

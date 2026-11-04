@@ -331,7 +331,7 @@ export default function QuizRunner({
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 w-full space-y-6 relative">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full space-y-6 relative">
       {/* Top Bar Minimalista com Navegação Integrada na Barra de Progresso */}
       <div className="mb-6 sm:mb-8 space-y-3">
         <div className="flex items-center justify-between">

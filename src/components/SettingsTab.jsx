@@ -143,7 +143,8 @@ export default function SettingsTab({ apiKey, setApiKey, model = DEFAULT_MODEL, 
   const mascara = apiKey ? `${apiKey.slice(0, 6)}••••••••${apiKey.slice(-4)}` : '';
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 w-full space-y-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full">
+      <div className="max-w-2xl space-y-10">
       <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Opções</h1>
 
       {status && (
@@ -267,6 +268,7 @@ export default function SettingsTab({ apiKey, setApiKey, model = DEFAULT_MODEL, 
         <button type="button" onClick={handleResetPreferences} className="text-sm text-slate-400 hover:text-slate-200 underline underline-offset-4 cursor-pointer">
           Restaurar padrões
         </button>
+      </div>
       </div>
     </div>
   );

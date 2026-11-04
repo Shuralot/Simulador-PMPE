@@ -111,6 +111,9 @@ export default function QuizRunner({
     }));
   };
 
+  // Os atalhos chamam sempre a versão mais recente dos handlers (evita fechar o simulado com tempos/respostas antigos)
+  const handlersRef = useRef({});
+
   // Atalhos de teclado
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -119,15 +122,15 @@ export default function QuizRunner({
       const key = e.key.toUpperCase();
       if (['A', 'B', 'C', 'D', 'E'].includes(key)) {
         if (!isValidated) {
-          handleSelectCandidateAnswer(key);
+          handlersRef.current.select(key);
         }
       } else if (e.key === 'Enter') {
         if (!isValidated && (currentPending || userAnswers[currentIndex])) {
-          handleValidateAnswer();
+          handlersRef.current.validate();
         } else if (isValidated && currentIndex < total - 1) {
           setCurrentIndex(i => i + 1);
         } else if (isValidated && currentIndex === total - 1) {
-          handleFinish();
+          handlersRef.current.finish();
         }
       } else if (e.key === 'ArrowRight' && currentIndex < total - 1) {
         setCurrentIndex(i => i + 1);
@@ -284,7 +287,7 @@ export default function QuizRunner({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleFinish = () => {
+  const handleFinish = function handleFinish() {
     const finalAnswers = { ...userAnswers };
     if (currentPending && !finalAnswers[currentIndex]) {
       finalAnswers[currentIndex] = currentPending;
@@ -306,6 +309,10 @@ export default function QuizRunner({
       modo
     });
   };
+
+  useEffect(() => {
+    handlersRef.current = { select: handleSelectCandidateAnswer, validate: handleValidateAnswer, finish: handleFinish };
+  });
 
   if (!currentQ || total === 0) {
     return (

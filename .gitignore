@@ -27,3 +27,6 @@ Thumbs.db
 *.tmp
 backups/
 _arquivo/
+
+# Banco pessoal (histórico e chave); o acervo base vai em seed/
+simulador.db

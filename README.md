@@ -105,3 +105,12 @@ O acervo local já funciona offline sem precisar de nada. Mas se você quiser ge
 <div align="center">
   <sub>Desenvolvido com foco na aprovação no Concurso Soldado PMPE • Força e Honra 🇧🇷</sub>
 </div>
+
+---
+
+## ⚙️ Notas de uso
+
+* `npm start`: compila o front-end e serve tudo pelo Express em `http://localhost:3001` (sem precisar do Vite).
+* `simulador.db` é o **seu banco pessoal** (histórico, caderno de erros, chave) e **não é versionado**. Na primeira execução ele é criado a partir de `seed/simulador.seed.db` (acervo sem histórico). Para regenerar o seed: `npm run seed`.
+* O servidor escuta só em `127.0.0.1` e aceita apenas origens locais.
+* Backup extra fora do projeto: defina `BACKUP_EXTRA_DIR` (ex.: uma pasta do OneDrive) e a cópia diária também vai para lá.

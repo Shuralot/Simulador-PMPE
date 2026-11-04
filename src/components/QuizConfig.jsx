@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Brain, Clock, Check, ArrowRight, Zap, Database } from 'lucide-react';
-import { fetchContagemBanco } from '../services/api';
+import { fetchContagemBanco, fetchDesempenho } from '../services/api';
 
 const CORE_DISCIPLINAS = [
   { id: 'Direito Constitucional', nome: 'Direito Constitucional', bloco: 'Bloco III', chips: ['Artigo 5º', 'Remédios Constitucionais', 'Organização do Estado', 'Segurança Pública (Art. 144)'] },
@@ -26,6 +26,7 @@ export default function QuizConfig({
   const [modo, setModo] = useState('estudo'); // 'estudo' | 'simulado'
   const [sourceMode, setSourceMode] = useState('local'); // 'local' | 'ai'
   const [contagemData, setContagemData] = useState(null);
+  const [avisoFracos, setAvisoFracos] = useState('');
 
   const activeChips = CORE_DISCIPLINAS
     .filter(d => selectedDisciplinas.includes(d.id))
@@ -70,6 +71,27 @@ export default function QuizConfig({
     if (tipo === 'todas') setSelectedDisciplinas(CORE_DISCIPLINAS.map(d => d.id));
     else if (tipo === 'bloco3') setSelectedDisciplinas(['Direito Constitucional', 'Direitos Humanos e Legislação Extravagante']);
     else if (tipo === 'bloco1') setSelectedDisciplinas(['Língua Portuguesa', 'História de Pernambuco']);
+  };
+
+  // Seleciona as disciplinas onde você mais erra (zonas críticas do Desempenho) e foca no pior tópico
+  const aplicarPontosFracos = async () => {
+    setAvisoFracos('');
+    try {
+      const data = await fetchDesempenho();
+      const zonas = (data?.zonasCriticas || [])
+        .filter((z) => CORE_DISCIPLINAS.some((d) => d.id === z.disciplina))
+        .sort((a, b) => b.erros - a.erros || a.taxa - b.taxa);
+      if (zonas.length === 0) {
+        setAvisoFracos('Ainda não há zonas críticas: responda mais questões para o app identificar seus pontos fracos.');
+        return;
+      }
+      const disciplinas = [...new Set(zonas.slice(0, 3).map((z) => z.disciplina))];
+      setSelectedDisciplinas(disciplinas);
+      setAssunto(disciplinas.length === 1 ? zonas[0].assunto : '');
+      setAvisoFracos(`Foco em: ${zonas.slice(0, 3).map((z) => `${z.assunto} (${z.taxa}%)`).join(', ')}`);
+    } catch {
+      setAvisoFracos('Não foi possível carregar seu desempenho.');
+    }
   };
 
   const isTemaDefinido = Boolean(assunto && assunto.trim());
@@ -172,8 +194,16 @@ export default function QuizConfig({
                   >
                     Gerais
                   </button>
+                  <button
+                    type="button"
+                    onClick={aplicarPontosFracos}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-colors cursor-pointer"
+                  >
+                    Pontos fracos
+                  </button>
                 </div>
               </div>
+              {avisoFracos && <p className="text-xs text-slate-400 mb-2">{avisoFracos}</p>}
 
               {/* Grid 2x3 das Matérias */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

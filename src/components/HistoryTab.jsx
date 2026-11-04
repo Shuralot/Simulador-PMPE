@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart3, 
-  Clock, 
-  AlertTriangle, 
   CheckCircle2, 
   Sparkles, 
   Target, 
@@ -11,18 +9,14 @@ import {
   History,
   RefreshCw,
   ArrowRight,
-  Zap,
   AlertCircle,
   Filter,
   TrendingUp,
   TrendingDown,
   Layers,
   BookOpen,
-  ChevronRight,
   X,
   Eye,
-  Check,
-  Compass
 } from 'lucide-react';
 import { 
   fetchDesempenho, 
@@ -161,10 +155,10 @@ function parseDiagnostic(raw, fallbackData) {
 
 export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStartCadernoQuiz }) {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState('kpis'); // 'kpis' | 'erros' | 'simulados'
   const [caderno, setCaderno] = useState([]);
-  const [loadingCaderno, setLoadingCaderno] = useState(false);
+  const [, setLoadingCaderno] = useState(false);
   const [simulados, setSimulados] = useState([]);
   const [loadingSimulados, setLoadingSimulados] = useState(false);
   const [actionFeedback, setActionFeedback] = useState(null);

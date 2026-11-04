@@ -20,13 +20,20 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configurações do Express
-app.use(cors());
+// Configurações do Express: o servidor é de uso pessoal, então só aceita origens locais
+const ORIGENS_LOCAIS = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+app.use(cors({ origin: (origin, cb) => cb(null, !origin || ORIGENS_LOCAIS.test(origin)) }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Inicialização do Banco de Dados SQLite em disco
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'simulador.db');
+// Primeira execução: cria o banco a partir do acervo base (sem histórico pessoal)
+const seedPath = path.join(__dirname, 'seed', 'simulador.seed.db');
+if (!fs.existsSync(dbPath) && fs.existsSync(seedPath)) {
+  fs.copyFileSync(seedPath, dbPath);
+  console.log('[SQLite] Banco criado a partir do acervo base (seed).');
+}
 const db = new DatabaseSync(dbPath);
 db.exec('PRAGMA journal_mode = WAL;');
 db.exec('PRAGMA synchronous = NORMAL;');
@@ -45,6 +52,12 @@ function backupDiario() {
     }
     const antigos = fs.readdirSync(dir).filter((f) => /^simulador-\d{4}-\d{2}-\d{2}\.db$/.test(f)).sort().reverse().slice(10);
     for (const f of antigos) fs.unlinkSync(path.join(dir, f));
+    // Cópia extra fora do projeto (ex.: pasta do OneDrive) via BACKUP_EXTRA_DIR
+    if (process.env.BACKUP_EXTRA_DIR) {
+      fs.mkdirSync(process.env.BACKUP_EXTRA_DIR, { recursive: true });
+      const extra = path.join(process.env.BACKUP_EXTRA_DIR, path.basename(destino));
+      if (!fs.existsSync(extra)) fs.copyFileSync(destino, extra);
+    }
   } catch (err) {
     console.warn('[Backup] Falha ao gravar backup diário:', err.message);
   }
@@ -2314,7 +2327,14 @@ app.post('/api/banco/resultado', (req, res) => {
 });
 
 // Servidor escutando
-app.listen(PORT, () => {
+// Em produção (npm start) o próprio Express serve o front-end compilado
+const distDir = path.join(__dirname, 'dist');
+if (fs.existsSync(path.join(distDir, 'index.html'))) {
+  app.use(express.static(distDir));
+  app.get(/^\/(?!api\/).*/,(req, res) => res.sendFile(path.join(distDir, 'index.html')));
+}
+
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`[Servidor SQLite Backend] Rodando em http://localhost:${PORT}`);
 });
  // reload

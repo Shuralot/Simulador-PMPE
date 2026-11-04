@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"node --watch server.mjs\" \"vite --open\"",
+    "start": "vite build && node server.mjs",
+    "seed": "node --no-warnings scripts/gerar-seed.mjs",
     "server": "node --watch server.mjs",
     "client": "vite --open",
     "build": "vite build",

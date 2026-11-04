@@ -9,6 +9,7 @@ import SettingsTab from './components/SettingsTab';
 
 import { 
   fetchProvas, 
+  fetchCadernoErros,
   fetchContextSnippets, 
   saveSimuladoResult,
   getSavedApiKey,
@@ -46,6 +47,17 @@ export default function App() {
 
   // Pré-preenchimento ao vir de Zona Crítica
   const [prefilledSubject, setPrefilledSubject] = useState(null);
+
+  // Revisões do Caderno de Erros que já venceram (repetição espaçada)
+  const [revisoesVencidas, setRevisoesVencidas] = useState([]);
+  useEffect(() => {
+    if (activeTab !== 'quiz' || quizState !== 'config') return;
+    let ativo = true;
+    fetchCadernoErros(true)
+      .then((itens) => { if (ativo) setRevisoesVencidas(itens); })
+      .catch(() => {});
+    return () => { ativo = false; };
+  }, [activeTab, quizState]);
 
   // Carregamento inicial do SQLite
   const loadExamsFromDB = async () => {
@@ -369,6 +381,20 @@ export default function App() {
         {/* Aba Quiz / Simulador */}
         {activeTab === 'quiz' && (
           <>
+            {quizState === 'config' && revisoesVencidas.length > 0 && (
+              <div className="max-w-5xl mx-auto mb-4 px-4 sm:px-6 w-full">
+                <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-sm flex items-center justify-between gap-3">
+                  <span>Hoje você tem <strong>{revisoesVencidas.length}</strong> {revisoesVencidas.length === 1 ? 'revisão vencida' : 'revisões vencidas'} no Caderno de Erros.</span>
+                  <button
+                    onClick={() => handleStartCadernoQuiz(revisoesVencidas)}
+                    className="px-3 py-1.5 text-xs font-semibold bg-indigo-500/30 rounded-lg hover:bg-indigo-500/40 cursor-pointer whitespace-nowrap"
+                  >
+                    Revisar agora
+                  </button>
+                </div>
+              </div>
+            )}
+
             {quizState === 'config' && (
               <QuizConfig
                 onStartQuiz={handleStartQuiz}

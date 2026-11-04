@@ -299,3 +299,10 @@ export async function salvarNotasCaderno(id, { anotacao, tipo_armadilha }) {
   if (!res.ok) throw new Error('Falha ao salvar a anotação.');
   return await res.json();
 }
+
+export async function fetchFonteBase(fonte, { offset = 0, limite = 30 } = {}) {
+  const params = new URLSearchParams({ fonte, offset: String(offset), limite: String(limite) });
+  const res = await fetch(`${API_BASE}/base/fonte?${params.toString()}`);
+  if (!res.ok) throw new Error('Falha ao carregar a fonte.');
+  return await res.json();
+}

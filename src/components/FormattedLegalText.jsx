@@ -51,10 +51,27 @@ function formatInlineMarkdown(text) {
   return parts.length > 0 ? parts : text;
 }
 
+// Início de um novo bloco: inciso, parágrafo, alínea, título, item de lista ou artigo
+const INICIO_DE_BLOCO = /^([IVXLCDM]+\s*[-–—]|§|Par[aá]grafo\s+[uú]nico|[a-z]\)|#{1,4}\s|[-*•]\s|\*{0,2}(?:Art|Artigo)\.?\s*\d)/i;
+
+// Os textos de lei vêm quebrados em ~80 colunas: junta as linhas que continuam a frase anterior
+function reflow(text) {
+  const saida = [];
+  for (const linha of text.split('\n').map((l) => l.trim()).filter(Boolean)) {
+    const anterior = saida[saida.length - 1];
+    if (anterior !== undefined && !INICIO_DE_BLOCO.test(linha) && !/^#{1,4}\s/.test(anterior)) {
+      saida[saida.length - 1] = `${anterior} ${linha}`;
+    } else {
+      saida.push(linha);
+    }
+  }
+  return saida;
+}
+
 export default function FormattedLegalText({ text }) {
   if (!text) return null;
 
-  const lines = text.split('\n').map(l => l.trimEnd()).filter(Boolean);
+  const lines = reflow(text);
 
   // Classifica e agrupa as linhas
   const elements = [];

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   UploadCloud, 
   Trash2, 
@@ -8,13 +8,10 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Building2,
-  Calendar,
   Sparkles,
-  Layers,
   Search,
   Database,
   Zap,
-  BookOpen
 } from 'lucide-react';
 import { parsePdfFile } from '../utils/pdfParser';
 import { 
@@ -22,13 +19,8 @@ import {
   toggleProva, 
   deleteProva, 
   buscaCossenoProvas,
-  fetchBaseStats,
-  buscarBaseLegal,
-  ingerirBaseLegal,
-  removerBaseLegal,
   importarGabarito
 } from '../services/api';
-import FormattedLegalText from './FormattedLegalText';
 
 // Detecção inteligente de banca e órgão a partir do texto do PDF
 function detectBancaAndMetadata(text, fileName) {
@@ -78,79 +70,10 @@ export default function ExamManager({ exams, onRefreshExams }) {
   const [gabaritoTexto, setGabaritoTexto] = useState('');
   const [gabaritoMsg, setGabaritoMsg] = useState(null);
 
-  // Base legal (leis/edital) usada como fonte primária pela IA
-  const [baseStats, setBaseStats] = useState([]);
-  const [baseFonte, setBaseFonte] = useState('');
-  const [baseDisciplina, setBaseDisciplina] = useState('');
-  const [baseTexto, setBaseTexto] = useState('');
-  const [baseMsg, setBaseMsg] = useState(null);
-  const [baseSalvando, setBaseSalvando] = useState(false);
-
   // Busca vetorial por cosseno
   const [cossenoQuery, setCossenoQuery] = useState('');
   const [cossenoResults, setCossenoResults] = useState([]);
   const [cossenoSearching, setCossenoSearching] = useState(false);
-
-  // Consulta rápida na Base Oficial Soldado PMPE 2026 (FTS5 + BM25)
-  const [vadeQuery, setVadeQuery] = useState('');
-  const [vadeDisciplina, setVadeDisciplina] = useState('');
-  const [vadeResults, setVadeResults] = useState([]);
-  const [vadeSearching, setVadeSearching] = useState(false);
-
-  const fontesAgrupadas = React.useMemo(() => {
-    const map = new Map();
-    for (const item of baseStats) {
-      const atual = map.get(item.fonte) || {
-        fonte: item.fonte,
-        disciplina: item.disciplina || '',
-        trechos: 0,
-        topicos: new Set()
-      };
-      atual.trechos += Number(item.trechos || 0);
-      if (item.topico) atual.topicos.add(item.topico);
-      if (!atual.disciplina && item.disciplina) atual.disciplina = item.disciplina;
-      map.set(item.fonte, atual);
-    }
-    return Array.from(map.values());
-  }, [baseStats]);
-
-  const totalTrechosBase = React.useMemo(
-    () => fontesAgrupadas.reduce((acc, f) => acc + f.trechos, 0),
-    [fontesAgrupadas]
-  );
-
-  const executarBuscaVade = async (termo, disc = vadeDisciplina) => {
-    if (!termo.trim() && !disc) return;
-    setVadeSearching(true);
-    try {
-      const res = await buscarBaseLegal({
-        q: termo.trim(),
-        disciplina: disc,
-        limite: 6
-      });
-      setVadeResults(res || []);
-    } finally {
-      setVadeSearching(false);
-    }
-  };
-
-  const handleVadeSearch = (e) => {
-    e?.preventDefault();
-    executarBuscaVade(vadeQuery, vadeDisciplina);
-  };
-
-  const carregarBase = async () => {
-    try {
-      const stats = await fetchBaseStats();
-      setBaseStats(stats || []);
-    } catch (e) {
-      console.warn(e);
-    }
-  };
-
-  useEffect(() => { 
-    carregarBase(); 
-  }, []);
 
   const handleImportarGabarito = async (provaId) => {
     try {
@@ -160,31 +83,6 @@ export default function ExamManager({ exams, onRefreshExams }) {
       await onRefreshExams();
     } catch (err) {
       setGabaritoMsg({ type: 'error', text: err.message });
-    }
-  };
-
-  const handleIngerirBase = async () => {
-    setBaseSalvando(true);
-    setBaseMsg(null);
-    try {
-      const r = await ingerirBaseLegal({ fonte: baseFonte, disciplina: baseDisciplina, texto: baseTexto });
-      setBaseMsg({ type: 'success', text: `${r.trechos} trechos gravados (por artigo/súmula).` });
-      setBaseTexto('');
-      await carregarBase();
-    } catch (err) {
-      setBaseMsg({ type: 'error', text: err.message });
-    } finally {
-      setBaseSalvando(false);
-    }
-  };
-
-  const handleRemoverBase = async (fonte) => {
-    if (!window.confirm(`Remover todos os trechos de "${fonte}"?`)) return;
-    try {
-      await removerBaseLegal(fonte);
-      await carregarBase();
-    } catch (err) {
-      alert(err.message);
     }
   };
 
@@ -627,191 +525,6 @@ export default function ExamManager({ exams, onRefreshExams }) {
               )}
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Base Legal & Consulta Rápida Soldado PMPE 2026 */}
-      <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-5 sm:p-7 shadow-xl shadow-black/30 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.06]">
-          <div>
-            <h2 className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-              <span>Vade Mecum & Fichas Oficiais — Soldado PMPE 2026</span>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Consulta instantânea offline (SQLite FTS5 + BM25) na legislação atualizada, súmulas STF/STJ e fichas de História de PE e Informática.
-            </p>
-          </div>
-          <span className="text-xs font-mono font-semibold px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 self-start sm:self-auto">
-            {totalTrechosBase} dispositivos em {fontesAgrupadas.length} fontes
-          </span>
-        </div>
-
-        {/* Busca Rápida Offline */}
-        <div className="space-y-3">
-          <form onSubmit={handleVadeSearch} className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                value={vadeQuery}
-                onChange={(e) => setVadeQuery(e.target.value)}
-                placeholder="Ex: Art. 5 XI, Lei 6783 art 28, Súmula 11, Revolução 1817, Backup incremental..."
-                className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500/60"
-              />
-            </div>
-            <select
-              value={vadeDisciplina}
-              onChange={(e) => setVadeDisciplina(e.target.value)}
-              className="bg-slate-900 border border-white/[0.08] rounded-xl px-3 py-2.5 text-slate-200 text-xs sm:text-sm focus:outline-none focus:border-emerald-500/60"
-            >
-              <option value="">Todas as disciplinas</option>
-              <option value="Direito Constitucional">Direito Constitucional</option>
-              <option value="Direitos Humanos e Legislação Extravagante">DH e Legislação Extravagante</option>
-              <option value="História de Pernambuco">História de Pernambuco</option>
-              <option value="Informática">Informática</option>
-            </select>
-            <button
-              type="submit"
-              disabled={vadeSearching || (!vadeQuery.trim() && !vadeDisciplina)}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all disabled:opacity-50 cursor-pointer"
-            >
-              {vadeSearching ? 'Buscando...' : 'Consultar'}
-            </button>
-          </form>
-
-          {/* Atalhos rápidos */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-slate-500 mr-1">Atalhos:</span>
-            {[
-              { label: 'CF Art. 5º XI', q: 'Art. 5 XI domicílio', disc: 'Direito Constitucional' },
-              { label: 'Estatuto PMPE (Lei 6.783)', q: 'Art. 28 valor policial-militar', disc: 'Direitos Humanos e Legislação Extravagante' },
-              { label: 'SV 11 Algemas', q: 'Súmula Vinculante 11 algemas', disc: 'Direitos Humanos e Legislação Extravagante' },
-              { label: 'Insurreição 1645 / Guararapes', q: 'Guararapes 1648 Tabocas', disc: 'História de Pernambuco' },
-              { label: 'Excel 2019 vs Calc', q: 'PROCV SOMASES Calc', disc: 'Informática' }
-            ].map((chip) => (
-              <button
-                key={chip.label}
-                type="button"
-                onClick={() => {
-                  setVadeQuery(chip.q);
-                  setVadeDisciplina(chip.disc);
-                  executarBuscaVade(chip.q, chip.disc);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] text-slate-300 transition-colors cursor-pointer"
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-
-          {vadeResults.length > 0 && (
-            <div className="grid gap-2.5 pt-2 max-h-96 overflow-y-auto pr-1">
-              {vadeResults.map((r) => (
-                <div key={r.id} className="p-4 sm:p-5 rounded-2xl bg-[#090d16] border border-emerald-500/25 space-y-3 shadow-lg shadow-black/20">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-emerald-300">
-                        {r.fonte}
-                      </span>
-                      {r.referencia && (
-                        <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-white/[0.04] text-slate-300 border border-white/[0.08]">
-                          {r.referencia}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {r.disciplina && (
-                        <span className="px-2.5 py-0.5 rounded-full bg-white/[0.04] text-slate-300 border border-white/[0.06] text-[11px] font-medium">
-                          {r.disciplina}
-                        </span>
-                      )}
-                      {r.topico && (
-                        <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 text-[11px] font-medium">
-                          {r.topico}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <FormattedLegalText text={r.texto} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Adicionar nova fonte manual */}
-        <div className="pt-5 border-t border-white/[0.06]">
-          <h3 className="text-xs sm:text-sm font-bold text-slate-200 mb-1 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-400" />
-            <span>Adicionar Lei ou Resumo Customizado na Base</span>
-          </h3>
-          <p className="text-xs text-slate-400 mb-3">
-            Cole trechos adicionais de legislação ou resumos para indexação automática por artigo/súmula no FTS5.
-          </p>
-          <div className="grid sm:grid-cols-2 gap-2.5 mb-2.5">
-            <input
-              type="text"
-              placeholder="Fonte (ex: Lei Estadual PE nº 6.783/1974)"
-              value={baseFonte}
-              onChange={(e) => setBaseFonte(e.target.value)}
-              className="bg-white/[0.02] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 text-xs sm:text-sm focus:outline-none focus:border-indigo-500/60"
-            />
-            <select
-              value={baseDisciplina}
-              onChange={(e) => setBaseDisciplina(e.target.value)}
-              className="bg-slate-900 border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 text-xs sm:text-sm focus:outline-none focus:border-indigo-500/60"
-            >
-              <option value="">Todas as disciplinas</option>
-              <option>Direito Constitucional</option>
-              <option>Direitos Humanos e Legislação Extravagante</option>
-              <option>Língua Portuguesa</option>
-              <option>História de Pernambuco</option>
-              <option>Raciocínio Lógico-Matemático</option>
-              <option>Informática</option>
-            </select>
-          </div>
-          <textarea
-            value={baseTexto}
-            onChange={(e) => setBaseTexto(e.target.value)}
-            rows={3}
-            placeholder="Cole aqui o texto dos artigos da lei ou ficha de estudo..."
-            className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500/60"
-          />
-          <div className="flex items-center gap-3 mt-3">
-            <button
-              onClick={handleIngerirBase}
-              disabled={baseSalvando || !baseFonte.trim() || baseTexto.trim().length < 50}
-              className="px-4 py-2 text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl cursor-pointer"
-            >
-              {baseSalvando ? 'Gravando...' : 'Gravar na Base Legal'}
-            </button>
-            {baseMsg && (
-              <span className={`text-xs ${baseMsg.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>{baseMsg.text}</span>
-            )}
-          </div>
-
-          {fontesAgrupadas.length > 0 && (
-            <ul className="mt-4 grid sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
-              {fontesAgrupadas.map((b) => (
-                <li key={b.fonte} className="flex items-center justify-between gap-2 text-xs text-slate-300 bg-white/[0.02] border border-white/[0.06] rounded-xl px-3 py-2">
-                  <div className="min-w-0">
-                    <span className="font-semibold text-slate-200 block truncate">{b.fonte}</span>
-                    <span className="text-slate-500 text-[11px]">
-                      {b.trechos} trechos{b.topicos.size > 0 ? ` • ${b.topicos.size} tópico(s)` : ''}{b.disciplina ? ` • ${b.disciplina}` : ''}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleRemoverBase(b.fonte)}
-                    title={`Remover ${b.fonte}`}
-                    className="text-slate-500 hover:text-rose-400 cursor-pointer shrink-0 p-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, FileText, BarChart3, Sliders, Shield } from 'lucide-react';
+import { BookOpen, Library, FileText, BarChart3, Sliders, Shield } from 'lucide-react';
 
 export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount, model = 'gemini-3.8-flash' }) {
   const modelShortName = model.includes('3.8') ? '3.8 Flash' : model.replace('gemini-', '');
@@ -7,6 +7,7 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount, 
   const navItems = [
     { id: 'quiz', label: 'Simulador', icon: BookOpen },
     { id: 'exams', label: 'Provas', icon: FileText, count: examCount },
+    { id: 'vade', label: 'Vade Mecum', icon: Library },
     { id: 'history', label: 'Desempenho', icon: BarChart3 },
     { id: 'settings', label: 'Opções', icon: Sliders, badge: !hasApiKey },
   ];
@@ -50,7 +51,7 @@ export default function Navbar({ activeTab, setActiveTab, hasApiKey, examCount, 
                   }`}
                 >
                   <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
-                  <span className="hidden sm:inline">{item.label}</span>
+                  <span className="hidden sm:inline whitespace-nowrap">{item.label}</span>
 
                   {item.count !== undefined && item.count > 0 && (
                     <span className="px-2 py-0.5 rounded-md text-xs bg-white/[0.08] text-slate-300 border border-white/[0.1] font-mono">

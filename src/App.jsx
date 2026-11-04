@@ -4,6 +4,7 @@ import QuizConfig from './components/QuizConfig';
 import QuizRunner from './components/QuizRunner';
 import QuizResult from './components/QuizResult';
 import ExamManager from './components/ExamManager';
+import VadeMecum from './components/VadeMecum';
 import HistoryTab from './components/HistoryTab';
 import PlanoEstudo from './components/PlanoEstudo';
 import SettingsTab from './components/SettingsTab';
@@ -439,6 +440,8 @@ export default function App() {
             onRefreshExams={loadExamsFromDB}
           />
         )}
+
+        {activeTab === 'vade' && <VadeMecum />}
 
         {/* Aba Desempenho & Repetição Espaçada (SQLite) */}
         {activeTab === 'history' && (

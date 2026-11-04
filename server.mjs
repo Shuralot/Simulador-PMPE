@@ -12,6 +12,7 @@ import { parseGabaritoTexto } from './lib/gabarito.mjs';
 import { chunkLei } from './lib/leis.mjs';
 import { hojeLocal, somarDiasLocal } from './lib/tempo.mjs';
 import { registrarRotasEstudo } from './routes/estudo.mjs';
+import { registrarRotasVade } from './routes/vade.mjs';
 import { registrarRotasConfig } from './routes/config.mjs';
 import { abrirBanco } from './db/conexao.mjs';
 
@@ -197,7 +198,7 @@ function buscarBaseConhecimento({ disciplinas = [], topicos = [], query = '', li
 
   // 3) Pontuação TF-IDF Cosseno + Boost cirúrgico de artigo/súmula exata + MMR
   const idf = getCorpusIdf();
-  const rankedCos = rankCandidates(query || [...topicosSet].join(' '), pool, Math.min(pool.length, Math.max(limite * 4, 16)), idf);
+  const rankedCos = rankCandidates(query || [...topicosSet].join(' '), pool, Math.min(pool.length, Math.max(limite * 4, 16)), idf, false);
   const cosMap = new Map(rankedCos.map((r) => [r.q.id, r.cosseno]));
 
   const combinados = pool.map((c) => {
@@ -2056,6 +2057,7 @@ app.post('/api/banco/resultado', (req, res) => {
 
 // Servidor escutando
 registrarRotasEstudo(app, db);
+registrarRotasVade(app, db);
 
 // Em produção (npm start) o próprio Express serve o front-end compilado
 const distDir = path.join(__dirname, 'dist');

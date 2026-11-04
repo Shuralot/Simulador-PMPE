@@ -114,3 +114,5 @@ O acervo local já funciona offline sem precisar de nada. Mas se você quiser ge
 * `simulador.db` é o **seu banco pessoal** (histórico, caderno de erros, chave) e **não é versionado**. Na primeira execução ele é criado a partir de `seed/simulador.seed.db` (acervo sem histórico). Para regenerar o seed: `npm run seed`.
 * O servidor escuta só em `127.0.0.1` e aceita apenas origens locais.
 * Backup extra fora do projeto: defina `BACKUP_EXTRA_DIR` (ex.: uma pasta do OneDrive) e a cópia diária também vai para lá.
+* **Plano de estudo** (home): contagem regressiva até a prova, meta diária, sequência de dias e cobertura dos tópicos do edital.
+* **Caderno de Erros:** anotação livre, tipo de armadilha ("por que errei") com resumo, e botão Imprimir / PDF.

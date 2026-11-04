@@ -270,3 +270,32 @@ export async function removerBaseLegal(fonte) {
   if (!res.ok) throw new Error('Falha ao remover fonte da base legal.');
   return await res.json();
 }
+
+export async function fetchPlano() {
+  const res = await fetch(`${API_BASE}/plano`);
+  if (!res.ok) throw new Error('Falha ao carregar o plano de estudo.');
+  return await res.json();
+}
+
+export async function salvarPlano({ dataProva, metaDiaria }) {
+  const res = await fetch(`${API_BASE}/plano`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataProva, metaDiaria })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Falha ao salvar o plano.');
+  }
+  return await res.json();
+}
+
+export async function salvarNotasCaderno(id, { anotacao, tipo_armadilha }) {
+  const res = await fetch(`${API_BASE}/caderno-erros/${id}/notas`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ anotacao, tipo_armadilha })
+  });
+  if (!res.ok) throw new Error('Falha ao salvar a anotação.');
+  return await res.json();
+}

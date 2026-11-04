@@ -29,7 +29,7 @@ const questao = (sufixo, extra = {}) => ({
 before(async () => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'simpmpe-'));
   // VACUUM INTO gera uma cópia consistente mesmo com o servidor em uso (copiar só o .db perderia o conteúdo do WAL)
-  const origem = new DatabaseSync(path.join(raiz, 'simulador.db'));
+  const origem = new DatabaseSync(path.join(raiz, 'seed', 'simulador.seed.db'));
   origem.exec("VACUUM INTO '" + path.join(tmp, 'simulador.db').replace(/'/g, "''") + "'");
   origem.close();
   proc = spawn(process.execPath, ['--no-warnings', 'server.mjs'], { cwd: raiz, env: { ...process.env, PORT: String(PORT), DB_PATH: path.join(tmp, 'simulador.db') } });
@@ -209,3 +209,19 @@ test('RAG Soldado 2026: FTS5 + BM25 + busca exata por artigo/súmula/ficha e iso
   assert.ok(ctxGeral.baseLegal.length > 100);
 });
 
+
+test('plano de estudo e anotações do caderno de erros', async () => {
+  const put = await fetch(base + '/plano', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataProva: '2099-01-01', metaDiaria: 30 }) });
+  assert.equal(put.status, 200);
+  const ruim = await fetch(base + '/plano', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataProva: 'amanhã' }) });
+  assert.equal(ruim.status, 400);
+
+  const plano = await get('/plano');
+  assert.equal(plano.metaDiaria, 30);
+  assert.ok(plano.diasRestantes > 1000);
+  assert.ok(plano.cobertura.totalTopicos > 40);
+  assert.ok(plano.tiposArmadilha.length >= 5);
+
+  const sem = await fetch(base + '/caderno-erros/999999/notas', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anotacao: 'x' }) });
+  assert.equal(sem.status, 404);
+});

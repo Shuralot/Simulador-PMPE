@@ -184,3 +184,17 @@ test('taxonomia Soldado PMPE 2026: exclui tópicos de Oficial e cobre edital Pra
   assert.equal(classificarTopico('Informática', '', 'atalhos do Windows 11 e prompt cmd'), 'Windows 11 e Prompt de Comando');
 });
 
+
+test('plano: dias até a prova e sequência de estudo', async () => {
+  const { diasAte, calcularSequencia } = await import('../routes/estudo.mjs');
+  const hoje = new Date(2026, 10, 4);
+  assert.equal(diasAte('2026-11-14', hoje), 10);
+  assert.equal(diasAte('2026-11-04', hoje), 0);
+  assert.equal(diasAte('2026-11-01', hoje), -3);
+  assert.equal(diasAte('lixo', hoje), null);
+  // estudou hoje, ontem e anteontem; falhou há 4 dias
+  assert.equal(calcularSequencia(['2026-11-04', '2026-11-03', '2026-11-02', '2026-10-31'], hoje), 3);
+  // ainda não estudou hoje: a sequência de ontem não se perde
+  assert.equal(calcularSequencia(['2026-11-03', '2026-11-02'], hoje), 2);
+  assert.equal(calcularSequencia([], hoje), 0);
+});

@@ -5,6 +5,7 @@ import QuizRunner from './components/QuizRunner';
 import QuizResult from './components/QuizResult';
 import ExamManager from './components/ExamManager';
 import HistoryTab from './components/HistoryTab';
+import PlanoEstudo from './components/PlanoEstudo';
 import SettingsTab from './components/SettingsTab';
 
 import { 
@@ -381,6 +382,10 @@ export default function App() {
         {/* Aba Quiz / Simulador */}
         {activeTab === 'quiz' && (
           <>
+            {quizState === 'config' && (
+              <PlanoEstudo onEstudarTopico={handleStartTargetedQuiz} refreshKey={resultData} />
+            )}
+
             {quizState === 'config' && revisoesVencidas.length > 0 && (
               <div className="max-w-5xl mx-auto mb-4 px-4 sm:px-6 w-full">
                 <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-sm flex items-center justify-between gap-3">

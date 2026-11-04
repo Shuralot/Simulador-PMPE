@@ -3,12 +3,12 @@ import { Sparkles, Brain, Clock, Check, ArrowRight, Zap, Database } from 'lucide
 import { fetchContagemBanco } from '../services/api';
 
 const CORE_DISCIPLINAS = [
-  { id: 'Direito Constitucional', nome: 'Direito Constitucional', bloco: 'Bloco III', chips: ['Artigo 5º', 'Remédios Constitucionais', 'Segurança Pública (Art. 144)'] },
-  { id: 'Direitos Humanos e Legislação Extravagante', nome: 'Direitos Humanos e Legislação', bloco: 'Bloco III', chips: ['Lei de Tortura', 'Abuso de Autoridade', 'Maria da Penha', 'Estatuto dos Militares'] },
-  { id: 'Língua Portuguesa', nome: 'Língua Portuguesa', bloco: 'Bloco I', chips: ['Crase', 'Pontuação', 'Concordância Verbal', 'Conectivos'] },
-  { id: 'História de Pernambuco', nome: 'História de Pernambuco', bloco: 'Bloco I', chips: ['Domínio Holandês', 'Revolução de 1817', 'Confederação do Equador', 'Guerra dos Mascates'] },
-  { id: 'Raciocínio Lógico-Matemático', nome: 'Raciocínio Lógico-Matemático', bloco: 'Bloco II', chips: ['Negação Lógica', 'Equivalência Lógica', 'Probabilidade', 'Análise Combinatória'] },
-  { id: 'Informática', nome: 'Informática', bloco: 'Bloco II', chips: ['Segurança da Informação', 'Windows 10', 'Excel', 'Redes de Computadores'] }
+  { id: 'Direito Constitucional', nome: 'Direito Constitucional', bloco: 'Bloco III', chips: ['Artigo 5º', 'Remédios Constitucionais', 'Organização do Estado', 'Segurança Pública (Art. 144)'] },
+  { id: 'Direitos Humanos e Legislação Extravagante', nome: 'Direitos Humanos e Legislação', bloco: 'Bloco III', chips: ['Estatuto PMPE (Lei 6.783)', 'Abuso de Autoridade', 'Maria da Penha', 'Crimes Ambientais', 'ECA'] },
+  { id: 'Língua Portuguesa', nome: 'Língua Portuguesa', bloco: 'Bloco I', chips: ['Crase', 'Pontuação', 'Concordância', 'Funções do Que e Se'] },
+  { id: 'História de Pernambuco', nome: 'História de Pernambuco', bloco: 'Bloco I', chips: ['Domínio Holandês', 'Revolução de 1817', 'Confederação do Equador', 'Quilombos e Cultura Afro'] },
+  { id: 'Raciocínio Lógico-Matemático', nome: 'Raciocínio Lógico-Matemático', bloco: 'Bloco II', chips: ['Negação e Equivalência', 'Diagramas Lógicos', 'Análise Combinatória', 'Probabilidade'] },
+  { id: 'Informática', nome: 'Informática', bloco: 'Bloco II', chips: ['Segurança da Informação', 'Windows 11', 'Excel 2019 e Calc', 'Backup e Nuvem'] }
 ];
 
 export default function QuizConfig({ 

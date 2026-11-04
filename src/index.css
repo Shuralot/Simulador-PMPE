@@ -42,3 +42,53 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
+
+/* Marca-Texto (Highlighter) Styles - Minimalista, sem quebras de texto */
+mark.hl-mark {
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  display: inline;
+}
+
+mark.hl-yellow {
+  background-color: rgba(250, 204, 21, 0.38);
+}
+
+mark.hl-green {
+  background-color: rgba(74, 222, 128, 0.35);
+}
+
+mark.hl-blue {
+  background-color: rgba(56, 189, 248, 0.35);
+}
+
+mark.hl-pink {
+  background-color: rgba(244, 114, 182, 0.35);
+}
+
+mark.hl-orange {
+  background-color: rgba(251, 146, 60, 0.38);
+}
+
+/* Balão Flutuante de Fundamentação (Estilo Deadlock) */
+@keyframes deadlockPop {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.deadlock-balloon {
+  animation: deadlockPop 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+

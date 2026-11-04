@@ -8,7 +8,7 @@ import { parseGabaritoTexto } from '../lib/gabarito.mjs';
 import { validarQuestao } from '../lib/validacaoQuestao.mjs';
 import { chunkLei } from '../lib/leis.mjs';
 import { somarDiasLocal, dataLocalISO } from '../lib/tempo.mjs';
-import { classificarTopico } from '../lib/taxonomia.mjs';
+import { TOPICOS_EDITAL, classificarTopico } from '../lib/taxonomia.mjs';
 import { extractQuestionsFromExam, removerCabecalhosRodapes, repararPalavrasPartidas, construirVocabulario } from '../lib/parserProvas.mjs';
 import { linhasDaPagina } from '../src/utils/linhasPdf.js';
 import { computeTFVector, calculateCosineSimilarity, rankCandidates } from '../lib/texto.mjs';
@@ -142,3 +142,45 @@ test('parser: remove rodapé repetido e conserta palavras partidas', () => {
   assert.equal(repararPalavrasPartidas('uma revist a antiga e um estudo', vocab), 'uma revista antiga e um estudo');
   assert.equal(repararPalavrasPartidas('o policial viu a casa', vocab), 'o policial viu a casa');
 });
+
+test('tokenizador e stemmer: preserva números de artigos, siglas e alinha singular/plural', () => {
+  const v5 = computeTFVector('Art. 5º CF');
+  const v14 = computeTFVector('Art. 14º CF');
+  assert.ok(v5['5'] > 0 && !v5['14'], 'preserva número 5');
+  assert.ok(v14['14'] > 0 && !v14['5'], 'preserva número 14');
+  assert.ok(calculateCosineSimilarity(v5, v14) < 0.85, 'Art. 5 e Art. 14 têm vetores distintos');
+
+  assert.ok(calculateCosineSimilarity(computeTFVector('crime ambiental'), computeTFVector('crimes ambientais')) > 0.99);
+  const vSiglas = computeTFVector('HC e SV na CF de PE');
+  assert.ok(vSiglas.hc > 0 && vSiglas.sv > 0 && vSiglas.cf > 0 && vSiglas.pe > 0);
+});
+
+test('leis: sub-fatiamento semântico preserva caput, rotula incisos e ignora revogados/frontmatter', () => {
+  const incisos = Array.from({ length: 18 }, (_, i) => {
+    const romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII'];
+    return `${romanos[i]} - garantia fundamental extensa detalhada número ${i + 1} assegurada a todos os cidadãos em território nacional mediante cláusula pétrea;`;
+  }).join('\n');
+  const raw = `---\ntitle: Lei Teste\n---\nArt. 5º Todos são iguais perante a lei, garantindo-se a inviolabilidade dos direitos:\n${incisos}\nArt. 6º (Revogado pela Lei nº 9.999, de 2020)\nArt. 7º São direitos sociais a educação e a segurança.`;
+
+  const chunks = chunkLei(raw);
+  assert.ok(chunks.length >= 3, 'artigo longo fatiado em múltiplos sub-blocos');
+  assert.ok(!chunks.some((c) => c.referencia.startsWith('Art. 6')), 'ignora artigo puramente revogado');
+  assert.ok(!chunks[0].texto.includes('title: Lei Teste'), 'remove frontmatter YAML');
+  assert.match(chunks[0].referencia, /^Art\. 5º \(I/);
+  assert.match(chunks[1].texto, /Todos são iguais perante a lei.*\[\.\.\.\]/, 'sub-bloco seguinte preserva contexto do caput');
+});
+
+test('taxonomia Soldado PMPE 2026: exclui tópicos de Oficial e cobre edital Praça QPMG', () => {
+  const dh = TOPICOS_EDITAL['Direitos Humanos e Legislação Extravagante'].map((t) => t.topico);
+  assert.ok(dh.includes('Estatuto dos Policiais Militares de PE'));
+  assert.ok(dh.includes('Crimes Ambientais'));
+  assert.ok(dh.includes('Estatuto da Juventude'));
+  assert.ok(!dh.includes('Estatuto do Desarmamento'), 'Desarmamento é apenas Oficial');
+
+  const rlm = TOPICOS_EDITAL['Raciocínio Lógico-Matemático'].map((t) => t.topico);
+  assert.ok(!rlm.includes('Estatística'), 'Estatística é apenas Oficial');
+
+  assert.equal(classificarTopico('Direitos Humanos e Legislação Extravagante', 'Lei 6.783/1974', 'hierarquia e disciplina PMPE'), 'Estatuto dos Policiais Militares de PE');
+  assert.equal(classificarTopico('Informática', '', 'atalhos do Windows 11 e prompt cmd'), 'Windows 11 e Prompt de Comando');
+});
+

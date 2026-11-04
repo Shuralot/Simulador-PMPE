@@ -11,6 +11,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import LegalReferencePanel from './LegalReferencePanel';
 
 export default function QuizResult({ 
   resultData, 
@@ -250,12 +251,16 @@ export default function QuizResult({
 
                     {/* Justificativa */}
                     {q.explicacao?.correta && (
-                      <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-sm sm:text-base text-slate-200">
+                      <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-sm sm:text-base text-slate-200 space-y-2">
                         <span className="font-bold text-slate-100 block mb-1.5 text-xs sm:text-sm uppercase tracking-wider text-emerald-400">
                           Comentário da Banca AOCP:
                         </span>
                         <p className="leading-relaxed">{q.explicacao.correta}</p>
+                        <LegalReferencePanel question={q} />
                       </div>
+                    )}
+                    {!q.explicacao?.correta && (
+                      <LegalReferencePanel question={q} />
                     )}
                   </div>
                 )}

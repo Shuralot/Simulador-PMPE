@@ -5,8 +5,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { buildTemaMatcher } from './lib/temaMatcher.mjs';
-import { normalizeText, computeTFVector, calculateCosineSimilarity, vetorDe, construirIdf, rankCandidates, hashEnunciado } from './lib/texto.mjs';
+import { buildTemaMatcher, parseTemaQuery } from './lib/temaMatcher.mjs';
+import { normalizeText, tokenizar, computeTFVector, calculateCosineSimilarity, vetorDe, construirIdf, rankCandidates, hashEnunciado } from './lib/texto.mjs';
 import { extractQuestionsFromExam, construirVocabulario } from './lib/parserProvas.mjs';
 import { classificarTopico, TOPICOS_EDITAL } from './lib/taxonomia.mjs';
 import { validarQuestao } from './lib/validacaoQuestao.mjs';
@@ -214,6 +214,10 @@ ensureColumn('caderno_erros', 'topico', 'TEXT');
 ensureColumn('caderno_erros', 'hash_enunciado', 'TEXT');
 ensureColumn('questoes_respondidas', 'marcou_duvida', 'INTEGER DEFAULT 0');
 ensureColumn('caderno_erros', 'origem_erro', "TEXT DEFAULT 'ERRO'");
+ensureColumn('base_conhecimento', 'topico', 'TEXT');
+ensureColumn('banco_questoes', 'fonte_legal', 'TEXT');
+ensureColumn('questoes_respondidas', 'fonte_legal', 'TEXT');
+ensureColumn('caderno_erros', 'fonte_legal', 'TEXT');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS uso_questoes_provas (
@@ -230,6 +234,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fonte TEXT NOT NULL,
     disciplina TEXT,
+    topico TEXT,
     referencia TEXT NOT NULL,
     texto TEXT NOT NULL,
     vetor_json TEXT,
@@ -237,6 +242,7 @@ db.exec(`
     UNIQUE (fonte, referencia)
   );
   CREATE INDEX IF NOT EXISTS idx_base_disciplina ON base_conhecimento(disciplina);
+  CREATE INDEX IF NOT EXISTS idx_base_topico ON base_conhecimento(topico);
 
   CREATE TABLE IF NOT EXISTS quarentena_questoes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -249,21 +255,73 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_caderno_hash ON caderno_erros(hash_enunciado);
   CREATE INDEX IF NOT EXISTS idx_qresp_topico ON questoes_respondidas(disciplina, topico);
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS base_conhecimento_fts USING fts5(
+    chunk_id UNINDEXED,
+    fonte,
+    disciplina,
+    topico,
+    referencia,
+    texto_norm
+  );
 `);
 
-// Backfill idempotente de tópicos canônicos e hashes
+// Sincroniza o índice full-text BM25 nativo (SQLite FTS5) da base de conhecimento
+function sincronizarBaseFts(forcar = false) {
+  try {
+    const totalBase = db.prepare('SELECT COUNT(*) as n FROM base_conhecimento').get().n;
+    const totalFts = db.prepare('SELECT COUNT(*) as n FROM base_conhecimento_fts').get().n;
+    if (!forcar && totalBase === totalFts) return;
+    db.exec('BEGIN');
+    db.exec('DELETE FROM base_conhecimento_fts');
+    const insFts = db.prepare('INSERT INTO base_conhecimento_fts (chunk_id, fonte, disciplina, topico, referencia, texto_norm) VALUES (?, ?, ?, ?, ?, ?)');
+    for (const r of db.prepare('SELECT id, fonte, disciplina, topico, referencia, texto FROM base_conhecimento').all()) {
+      insFts.run(
+        String(r.id),
+        normalizeText(r.fonte),
+        normalizeText(r.disciplina || ''),
+        normalizeText(r.topico || ''),
+        normalizeText(r.referencia),
+        tokenizar(`${r.referencia} ${r.texto}`).join(' ')
+      );
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch {}
+    console.warn('[FTS5] Aviso ao sincronizar base_conhecimento_fts:', err.message);
+  }
+}
+sincronizarBaseFts();
+
+// Backfill idempotente de tópicos canônicos (incluindo migração automática para a taxonomia Soldado PMPE 2026) e hashes
 function backfillTopicos() {
-  const upd = (tabela, extraCols) => {
-    const rows = db.prepare(`SELECT id, disciplina, assunto, enunciado ${extraCols} FROM ${tabela} WHERE topico IS NULL OR topico = ''`).all();
-    if (rows.length === 0) return;
+  const topicosValidosPorDisc = new Map(
+    Object.entries(TOPICOS_EDITAL).map(([d, arr]) => [d, new Set(arr.map((t) => t.topico))])
+  );
+  const precisaReclassificar = (disciplina, topicoAtual) => {
+    if (!topicoAtual) return true;
+    const validos = topicosValidosPorDisc.get(disciplina);
+    if (!validos) return false;
+    return !validos.has(topicoAtual);
+  };
+
+  const upd = (tabela, usarAlts = false) => {
+    const cols = usarAlts ? 'id, disciplina, assunto, enunciado, alternativas_json, topico' : 'id, disciplina, assunto, enunciado, topico';
+    const rows = db.prepare(`SELECT ${cols} FROM ${tabela}`).all();
+    const pendentes = rows.filter((r) => precisaReclassificar(r.disciplina, r.topico));
+    if (pendentes.length === 0) return;
     const stmt = db.prepare(`UPDATE ${tabela} SET topico = ? WHERE id = ?`);
     db.exec('BEGIN');
-    for (const r of rows) stmt.run(classificarTopico(r.disciplina, r.assunto || '', r.enunciado || ''), r.id);
+    for (const r of pendentes) {
+      const textoExtra = usarAlts ? `${r.enunciado || ''} ${r.alternativas_json || ''}` : (r.enunciado || '');
+      stmt.run(classificarTopico(r.disciplina, r.assunto || '', textoExtra), r.id);
+    }
     db.exec('COMMIT');
   };
-  upd('questoes_respondidas', '');
-  upd('banco_questoes', '');
-  upd('caderno_erros', '');
+  upd('questoes_respondidas', false);
+  upd('banco_questoes', false);
+  upd('caderno_erros', false);
+  upd('questoes_provas', true);
   const semHash = db.prepare("SELECT id, enunciado FROM caderno_erros WHERE hash_enunciado IS NULL").all();
   const h = db.prepare('UPDATE caderno_erros SET hash_enunciado = ? WHERE id = ?');
   for (const r of semHash) h.run(hashEnunciado(r.enunciado), r.id);
@@ -301,6 +359,120 @@ function getCorpusIdf() {
 
 function rankCandidatesWithBM25AndMMR(queryText, candidates, maxItems = 6) {
   return rankCandidates(queryText, candidates, maxItems, getCorpusIdf());
+}
+
+// Busca híbrida na base de conhecimento: Lookup exato de Artigo/Súmula + SQLite FTS5 BM25 + TF-IDF Cosseno + MMR
+function buscarBaseConhecimento({ disciplinas = [], topicos = [], query = '', limite = 3, minScore = 0.10 }) {
+  const normQuery = normalizeText(query);
+  const mSumula = normQuery.match(/\b(?:sumula|sv)\s*(?:vinculante\s*)?(?:no?\s*)?(\d{1,4})\b/);
+  const sumulaAlvo = mSumula ? mSumula[1] : null;
+
+  let sql = 'SELECT id, fonte, referencia, texto, vetor_json, disciplina, topico FROM base_conhecimento WHERE 1=1';
+  const params = [];
+  if (disciplinas.length > 0) {
+    sql += ` AND disciplina IN (${disciplinas.map(() => '?').join(',')})`;
+    params.push(...disciplinas);
+  }
+  const todos = db.prepare(sql).all(...params);
+
+  // Súmulas (ex.: SV 11 Algemas) são transversais entre Constitucional e DH/Legislação Extravagante
+  if (sumulaAlvo) {
+    const reSum = new RegExp(`S[úu]mula(?:\\s+Vinculante)?\\s*(?:n[º°.]?\\s*)?${sumulaAlvo}\\b`, 'i');
+    if (!todos.some((c) => reSum.test(`${c.fonte} ${c.referencia}`))) {
+      const extras = db.prepare("SELECT id, fonte, referencia, texto, vetor_json, disciplina, topico FROM base_conhecimento WHERE fonte LIKE '%Súmula%' OR referencia LIKE '%Súmula%'")
+        .all()
+        .filter((c) => reSum.test(`${c.fonte} ${c.referencia}`));
+      todos.push(...extras);
+    }
+  }
+
+  if (todos.length === 0) return [];
+
+  // Filtra pelo(s) tópico(s) canônico(s) se houver, preservando também match literal na referência/fonte
+  const topicosSet = new Set(topicos.filter((t) => t && t !== 'Outros'));
+  let pool = todos;
+  if (topicosSet.size > 0) {
+    const filtrados = todos.filter((c) => {
+      if (!c.topico || topicosSet.has(c.topico)) return true;
+      if (sumulaAlvo && new RegExp(`\\b${sumulaAlvo}\\b`).test(`${c.fonte} ${c.referencia}`)) return true;
+      const normRef = normalizeText(`${c.fonte} ${c.referencia}`);
+      return normQuery && (normQuery.includes(normalizeText(c.referencia)) || normRef.includes(normQuery));
+    });
+    if (filtrados.length > 0) pool = filtrados;
+  }
+
+  // 1) Extração explícita de números de artigos e súmulas (ex.: "art 5", "arts 37 a 41", "sv 11", "sumula 542")
+  const parsedTema = parseTemaQuery(query);
+  const artigosAlvo = new Set();
+  for (const g of parsedTema.groups) for (const a of g.articles) artigosAlvo.add(String(a));
+  // Caso o usuário digite só "artigo 5" ou "5" com "art"
+  for (const m of normQuery.matchAll(/\bart(?:igo)?s?\s*(\d{1,3})\b/g)) artigosAlvo.add(String(Number(m[1])));
+
+  // 2) Pontuação FTS5 BM25 nativa do SQLite
+  const ftsScores = new Map();
+  const tokensBusca = tokenizar(query).filter((t) => t.length >= 2 || /^\d+$/.test(t));
+  if (tokensBusca.length > 0) {
+    try {
+      const ftsExpr = tokensBusca.slice(0, 12).map((t) => `"${t.replace(/"/g, '')}"*`).join(' OR ');
+      const ftsRows = db.prepare(`
+        SELECT chunk_id, bm25(base_conhecimento_fts, 0.0, 1.5, 0.5, 2.0, 3.0, 1.2) as rank_bm25
+        FROM base_conhecimento_fts
+        WHERE base_conhecimento_fts MATCH ?
+        LIMIT 40
+      `).all(ftsExpr);
+      if (ftsRows.length > 0) {
+        // bm25() em SQLite retorna valores negativos (quanto mais negativo, mais relevante)
+        const minBm25 = Math.min(...ftsRows.map((r) => r.rank_bm25));
+        const span = Math.abs(minBm25) || 1;
+        for (const r of ftsRows) {
+          ftsScores.set(Number(r.chunk_id), Math.min(1, Math.abs(r.rank_bm25) / span));
+        }
+      }
+    } catch {}
+  }
+
+  // 3) Pontuação TF-IDF Cosseno + Boost cirúrgico de artigo/súmula exata + MMR
+  const idf = getCorpusIdf();
+  const rankedCos = rankCandidates(query || [...topicosSet].join(' '), pool, Math.min(pool.length, Math.max(limite * 4, 16)), idf);
+  const cosMap = new Map(rankedCos.map((r) => [r.q.id, r.cosseno]));
+
+  const combinados = pool.map((c) => {
+    let score = (cosMap.get(c.id) || 0) * 0.55 + (ftsScores.get(c.id) || 0) * 0.45;
+    const mArtChunk = c.referencia.match(/^Art\.\s*(\d+)/i);
+    if (artigosAlvo.size > 0) {
+      if (mArtChunk && artigosAlvo.has(String(Number(mArtChunk[1])))) score += 0.65;
+      else score *= 0.35; // penaliza outros artigos quando o aluno pediu um artigo explícito!
+    }
+    if (sumulaAlvo) {
+      const mSumChunk = `${c.fonte} ${c.referencia}`.match(/S[úu]mula(?:\s+Vinculante)?\s*(?:n[º°.]?\s*)?(\d+)/i);
+      if (mSumChunk && mSumChunk[1] === sumulaAlvo) score += 0.70;
+      else score *= 0.35;
+    }
+    return { q: c, score };
+  }).filter((x) => x.score >= minScore);
+
+  combinados.sort((a, b) => b.score - a.score);
+
+  // MMR leve para não devolver dois sub-trechos idênticos se houver variedade relevante
+  const escolhidos = [];
+  const candidatosTop = combinados.slice(0, 18);
+  while (escolhidos.length < limite && candidatosTop.length > 0) {
+    let bestIdx = 0;
+    let bestMmr = -Infinity;
+    for (let i = 0; i < candidatosTop.length; i++) {
+      const cand = candidatosTop[i];
+      let maxSim = 0;
+      for (const sel of escolhidos) {
+        const sim = calculateCosineSimilarity(vetorDe(cand.q), vetorDe(sel.q));
+        if (sim > maxSim) maxSim = sim;
+      }
+      const mmr = 0.78 * cand.score - 0.22 * maxSim;
+      if (mmr > bestMmr) { bestMmr = mmr; bestIdx = i; }
+    }
+    escolhidos.push(candidatosTop.splice(bestIdx, 1)[0]);
+  }
+
+  return escolhidos.map((e) => ({ q: e.q, cosseno: Number(e.score.toFixed(4)) }));
 }
 
 function extractAndVectorizeExam(provaId, rawText, provaNome) {
@@ -797,8 +969,16 @@ app.get('/api/provas/contexto', (req, res) => {
     const { disciplina = '', disciplinas = '', assunto = '', limite = 6 } = req.query;
     const listaDisciplinas = (disciplinas || disciplina).split(',').map(d => d.trim()).filter(Boolean);
 
-    // Consulta enriquecida: assunto + tópicos do edital que casam com o assunto
-    const topicosRelacionados = listaDisciplinas.map((d) => classificarTopico(d, assunto, '')).filter((t) => t !== 'Outros');
+    // Consulta enriquecida: assunto + tópicos do edital que casam de verdade com o assunto em TODAS as disciplinas selecionadas
+    const topicosRelacionados = [];
+    if (assunto && assunto.trim()) {
+      for (const d of listaDisciplinas) {
+        const t = classificarTopico(d, assunto, '');
+        if (t && t !== 'Outros' && !(d === 'Língua Portuguesa' && t === 'Interpretação de Texto' && !/interpret|texto|inferenc|compreens/i.test(assunto))) {
+          topicosRelacionados.push(t);
+        }
+      }
+    }
     const searchPhrase = [...listaDisciplinas, assunto, assunto, ...topicosRelacionados].join(' ').trim();
 
     let sql = `
@@ -817,7 +997,7 @@ app.get('/api/provas/contexto', (req, res) => {
     }
     const candidateQuestions = db.prepare(sql).all(...params);
 
-    // Anti-repetição: questões do banco relacionadas ao tema (por similaridade) + as mais recentes da disciplina
+    // Anti-repetição enxuta (máx 8 itens curtos para economizar tokens; o backend já faz deduplicação determinística 100% em triarQuestoes)
     let sqlBanco = 'SELECT id, assunto, enunciado FROM banco_questoes WHERE 1=1';
     const paramsBanco = [];
     if (listaDisciplinas.length > 0) {
@@ -825,20 +1005,20 @@ app.get('/api/provas/contexto', (req, res) => {
       paramsBanco.push(...listaDisciplinas);
     }
     const doBanco = db.prepare(sqlBanco).all(...paramsBanco);
-    const relacionadas = rankCandidatesWithBM25AndMMR(searchPhrase, doBanco, 10).map((r) => r.q);
-    const recentes = [...doBanco].sort((a, b) => b.id - a.id).slice(0, 8);
+    const relacionadas = rankCandidatesWithBM25AndMMR(searchPhrase, doBanco, 5).map((r) => r.q);
+    const recentes = [...doBanco].sort((a, b) => b.id - a.id).slice(0, 3);
     const vistos = new Set();
     const evitar = [];
     for (const r of [...relacionadas, ...recentes]) {
-      if (vistos.has(r.id)) continue;
+      if (vistos.has(r.id) || evitar.length >= 6) continue;
       vistos.add(r.id);
       evitar.push(r);
     }
-    // Também evita o que o aluno respondeu há pouco tempo
     let sqlResp = 'SELECT assunto, enunciado FROM questoes_respondidas WHERE 1=1';
     if (listaDisciplinas.length > 0) sqlResp += ` AND disciplina IN (${listaDisciplinas.map(() => '?').join(',')})`;
-    sqlResp += ' ORDER BY id DESC LIMIT 12';
+    sqlResp += ' ORDER BY id DESC LIMIT 4';
     for (const r of db.prepare(sqlResp).all(...(listaDisciplinas.length > 0 ? listaDisciplinas : []))) {
+      if (evitar.length >= 8) break;
       evitar.push({ id: 'r' + evitar.length, assunto: r.assunto, enunciado: r.enunciado });
     }
 
@@ -856,47 +1036,71 @@ app.get('/api/provas/contexto', (req, res) => {
         .map((t) => t.topico);
     }
 
-    const evitarRepeticao = evitar.map((r, i) => `${i + 1}. [${r.assunto}] ${String(r.enunciado).slice(0, 160)}...`).join('\n');
+    const evitarRepeticao = evitar.map((r, i) => `${i + 1}. [${r.assunto}] ${String(r.enunciado).slice(0, 110)}...`).join('\n');
 
-    // Base legal: trechos de lei mais relevantes ao assunto
-    let sqlLei = 'SELECT id, fonte, referencia, texto, vetor_json, disciplina FROM base_conhecimento';
-    const paramsLei = [];
-    if (listaDisciplinas.length > 0) {
-      sqlLei += ` WHERE disciplina IS NULL OR disciplina IN (${listaDisciplinas.map(() => '?').join(',')})`;
-      paramsLei.push(...listaDisciplinas);
-    }
-    const candLei = db.prepare(sqlLei).all(...paramsLei);
+    // Base de Conhecimento / Legislação (híbrida FTS5 + Cosseno + Artigo Exato, sem truncar frases no meio):
+    // - Com assunto digitado: traz até 2 sub-trechos exatos de alta precisão.
+    // - Sem assunto (simulado geral): monta `basePorTopico` (1 dispositivo sorteado por tópico sugerido) para ancorar cada questão no seu próprio tópico sem vazar leis alheias!
     let baseLegal = '';
     let trechosLegais = [];
-    if (candLei.length > 0 && assunto) {
-      const topLei = rankCandidatesWithBM25AndMMR(searchPhrase, candLei, 6).filter((t) => t.cosseno > 0.05);
-      trechosLegais = topLei.map((t) => ({ fonte: t.q.fonte, referencia: t.q.referencia }));
+    const basePorTopico = {};
+
+    if (assunto && assunto.trim()) {
+      const topLei = buscarBaseConhecimento({
+        disciplinas: listaDisciplinas,
+        topicos: topicosRelacionados,
+        query: assunto,
+        limite: 2,
+        minScore: 0.10
+      });
+      trechosLegais = topLei.map((t) => ({ fonte: t.q.fonte, referencia: t.q.referencia, disciplina: t.q.disciplina, topico: t.q.topico }));
       baseLegal = topLei
-        .map((t) => `[${t.q.fonte} — ${t.q.referencia}]\n${String(t.q.texto).slice(0, 1500)}`)
+        .map((t) => `[${t.q.fonte} — ${t.q.referencia}]\n${String(t.q.texto)}`)
         .join('\n\n');
+    } else {
+      const discsAlvo = listaDisciplinas.length > 0 ? listaDisciplinas : Object.keys(TOPICOS_EDITAL);
+      const blocosFallback = [];
+      for (const d of discsAlvo) {
+        const sugeridos = topicosSugeridos[d] || [];
+        for (const top of sugeridos.slice(0, 4)) {
+          const rowsTop = db.prepare(
+            'SELECT fonte, referencia, texto, disciplina, topico FROM base_conhecimento WHERE disciplina = ? AND topico = ?'
+          ).all(d, top);
+          if (rowsTop.length > 0) {
+            const sorteado = rowsTop[Math.floor(Math.random() * rowsTop.length)];
+            const formatado = `[${sorteado.fonte} — ${sorteado.referencia}]\n${sorteado.texto}`;
+            basePorTopico[`${d}::${top}`] = formatado;
+            if (blocosFallback.length < 3) {
+              blocosFallback.push(formatado);
+              trechosLegais.push({ fonte: sorteado.fonte, referencia: sorteado.referencia, disciplina: d, topico: top });
+            }
+          }
+        }
+      }
+      baseLegal = blocosFallback.join('\n\n');
     }
 
     if (candidateQuestions.length === 0) {
-      return res.json({ snippets: '', evitarRepeticao, baseLegal, trechosLegais, topicosSugeridos, topScores: [] });
+      return res.json({ snippets: '', itens: [], evitarRepeticao, baseLegal, basePorTopico, trechosLegais, topicosSugeridos, topScores: [] });
     }
 
-    const maxItems = Math.max(3, Math.min(12, Number(limite) || 6));
+    const maxItems = Math.max(2, Math.min(6, Number(limite) || 4));
     const topItems = rankCandidatesWithBM25AndMMR(searchPhrase, candidateQuestions, maxItems);
 
-    // Cada item é montado inteiro para o cliente poder truncar apenas em fronteiras de item
+    // Só envia texto_base longo como exemplo quando a questão for de Língua Portuguesa (economiza ~60% dos tokens de exemplo)
     const itens = topItems.map((item) => {
       const q = item.q;
       const alts = typeof q.alternativas_json === 'string' ? JSON.parse(q.alternativas_json) : q.alternativas_json;
-      return `[ITEM REAL DA BANCA ${q.banca.toUpperCase()} (PROVA: ${q.prova_nome} - QUESTÃO ${q.numero} - TÓPICO: ${q.topico || q.disciplina} - RELEVÂNCIA: ${item.cosseno.toFixed(2)})]
+      const incluirTextoBase = q.disciplina === 'Língua Portuguesa' && q.texto_base;
+      return `[ITEM REAL ${q.banca.toUpperCase()} (${q.prova_nome} Q${q.numero} • ${q.topico || q.disciplina})]
 Disciplina: ${q.disciplina}
-${q.texto_base ? `Texto-base: ${q.texto_base.slice(0, 1200)}\n` : ''}Enunciado Oficial: ${q.enunciado}
-Alternativas da Banca:
+${incluirTextoBase ? `Texto-base: ${q.texto_base.slice(0, 650)}\n` : ''}Enunciado: ${q.enunciado}
 (A) ${alts.A || ''}
 (B) ${alts.B || ''}
 (C) ${alts.C || ''}
 (D) ${alts.D || ''}
 (E) ${alts.E || ''}
-Gabarito Oficial: ${q.gabarito_oficial || 'não disponível'}`;
+Gabarito: ${q.gabarito_oficial || 'N/D'}`;
     });
 
     res.json({
@@ -904,6 +1108,7 @@ Gabarito Oficial: ${q.gabarito_oficial || 'não disponível'}`;
       itens,
       evitarRepeticao,
       baseLegal,
+      basePorTopico,
       trechosLegais,
       topicosSugeridos,
       topScores: topItems.map(t => ({ questao: t.q.numero, cosseno: t.cosseno }))
@@ -922,20 +1127,69 @@ app.post('/api/base/ingerir', (req, res) => {
 
     const chunks = chunkLei(texto);
     const ins = db.prepare(`
-      INSERT INTO base_conhecimento (fonte, disciplina, referencia, texto, vetor_json, data_criacao)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(fonte, referencia) DO UPDATE SET texto = excluded.texto, vetor_json = excluded.vetor_json, disciplina = excluded.disciplina
+      INSERT INTO base_conhecimento (fonte, disciplina, topico, referencia, texto, vetor_json, data_criacao)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(fonte, referencia) DO UPDATE SET texto = excluded.texto, vetor_json = excluded.vetor_json, disciplina = excluded.disciplina, topico = excluded.topico
     `);
     const agora = new Date().toISOString();
     db.exec('BEGIN');
     try {
       for (const c of chunks) {
-        ins.run(String(fonte).trim(), disciplina, c.referencia, c.texto, JSON.stringify(computeTFVector(`${c.referencia} ${c.texto}`)), agora);
+        const topicoChunk = req.body.topico || (disciplina ? classificarTopico(disciplina, `${c.referencia} ${c.texto.slice(0, 150)}`, '') : null);
+        ins.run(String(fonte).trim(), disciplina || null, topicoChunk || null, c.referencia, c.texto, JSON.stringify(computeTFVector(`${c.referencia} ${c.texto}`)), agora);
       }
       db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); throw e; }
     invalidarCorpus();
+    sincronizarBaseFts(true);
     res.json({ success: true, trechos: chunks.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Consulta instantânea offline na Base de Conhecimento ("Letra da Lei" / Fichas do Edital) sem consumir tokens de IA
+app.get('/api/base/buscar', (req, res) => {
+  try {
+    const { q = '', disciplina = '', topico = '', limite = 5 } = req.query;
+    const disciplinas = disciplina ? String(disciplina).split(',').map((d) => d.trim()).filter(Boolean) : [];
+    const topicos = topico ? [String(topico).trim()] : [];
+    const lim = Math.max(1, Math.min(20, Number(limite) || 5));
+
+    if (!String(q).trim()) {
+      let sql = 'SELECT id, fonte, disciplina, topico, referencia, texto FROM base_conhecimento WHERE 1=1';
+      const params = [];
+      if (disciplinas.length > 0) {
+        sql += ` AND disciplina IN (${disciplinas.map(() => '?').join(',')})`;
+        params.push(...disciplinas);
+      }
+      if (topicos.length > 0) {
+        sql += ' AND topico = ?';
+        params.push(topicos[0]);
+      }
+      sql += ' ORDER BY id ASC LIMIT ?';
+      params.push(lim);
+      return res.json({ resultados: db.prepare(sql).all(...params).map((r) => ({ ...r, score: 1 })) });
+    }
+
+    const hits = buscarBaseConhecimento({
+      disciplinas,
+      topicos,
+      query: String(q),
+      limite: lim,
+      minScore: 0.05
+    });
+    res.json({
+      resultados: hits.map((h) => ({
+        id: h.q.id,
+        fonte: h.q.fonte,
+        disciplina: h.q.disciplina,
+        topico: h.q.topico,
+        referencia: h.q.referencia,
+        texto: h.q.texto,
+        score: h.cosseno
+      }))
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -943,7 +1197,7 @@ app.post('/api/base/ingerir', (req, res) => {
 
 app.get('/api/base/stats', (req, res) => {
   try {
-    res.json(db.prepare('SELECT fonte, disciplina, COUNT(*) as trechos FROM base_conhecimento GROUP BY fonte, disciplina ORDER BY fonte').all());
+    res.json(db.prepare('SELECT fonte, disciplina, topico, COUNT(*) as trechos FROM base_conhecimento GROUP BY fonte, disciplina, topico ORDER BY fonte').all());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -953,6 +1207,7 @@ app.delete('/api/base/:fonte', (req, res) => {
   try {
     const r = db.prepare('DELETE FROM base_conhecimento WHERE fonte = ?').run(req.params.fonte);
     invalidarCorpus();
+    sincronizarBaseFts(true);
     res.json({ success: true, removidos: r.changes });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1007,21 +1262,21 @@ app.post('/api/simulados', (req, res) => {
     // 2. Insere cada questão respondida
     const insertQuestao = db.prepare(`
       INSERT INTO questoes_respondidas (
-        simulado_id, questao_numero, disciplina, assunto, topico, dificuldade, origem, fonte,
+        simulado_id, questao_numero, disciplina, assunto, topico, dificuldade, origem, fonte, fonte_legal,
         tipo_cognitivo, enunciado, texto_base, alternativas_json, gabarito,
         resposta_usuario, acertou, marcou_duvida, dica, explicacao_json, tempo_segundos, data_hora
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // 3. Caderno de Erros (Leitner). Erro => Caixa 1 (+1 dia). Acerto marcado como dúvida => Caixa 2 (+3 dias), sem punir.
     const insertErro = db.prepare(`
       INSERT INTO caderno_erros (
-        questao_id, disciplina, assunto, topico, enunciado, hash_enunciado, alternativas_json, gabarito,
+        questao_id, disciplina, assunto, topico, fonte_legal, enunciado, hash_enunciado, alternativas_json, gabarito,
         explicacao_json, caixa_leitner, total_tentativas, total_acertos, data_ultimo_erro,
         data_proxima_revisao, status, origem_erro
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'PENDENTE', ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'PENDENTE', ?)
     `);
     const checkErroExistente = db.prepare(`
       SELECT id, caixa_leitner FROM caderno_erros WHERE hash_enunciado = ? OR enunciado = ? LIMIT 1
@@ -1062,6 +1317,7 @@ app.post('/api/simulados', (req, res) => {
           q.dificuldade || 'Média',
           (q.origem || q.tipo || 'INÉDITA').toUpperCase().includes('REAL') ? 'REAL' : 'INÉDITA',
           q.fonte || 'Banca Instituto AOCP',
+          q.fonteLegal || q.fonte_legal || null,
           q.tipoCognitivo || 'SITUACAO_PROBLEMA',
           q.enunciado || '',
           q.textoBase || q.texto_base || null,
@@ -1088,6 +1344,7 @@ app.post('/api/simulados', (req, res) => {
               discQ,
               q.assunto || assunto || 'Geral',
               topicoQ,
+              q.fonteLegal || q.fonte_legal || null,
               q.enunciado || '',
               hash,
               JSON.stringify(normAlts),
@@ -1692,10 +1949,10 @@ app.post('/api/banco/salvar', (req, res) => {
     const triagem = triarQuestoes(questoes);
     const insertStmt = db.prepare(`
       INSERT OR IGNORE INTO banco_questoes (
-        hash_enunciado, disciplina, assunto, topico, sub_topico, banca, tipo, dificuldade,
+        hash_enunciado, disciplina, assunto, topico, sub_topico, banca, tipo, fonte_legal, dificuldade,
         enunciado, texto_base, alternativas_json, gabarito, dica, explicacao_json,
         palavras_chave, verificada, total_vezes_usada, ultima_data_resolucao, data_criacao
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `);
     const quarentenaStmt = db.prepare(`
       INSERT INTO quarentena_questoes (motivo, disciplina, enunciado, payload_json, data_criacao) VALUES (?, ?, ?, ?, ?)
@@ -1738,6 +1995,7 @@ app.post('/api/banco/salvar', (req, res) => {
           q.sub_topico || q.tipoCognitivo || '',
           q.banca || 'Instituto AOCP',
           'INÉDITA', // o que a IA gera é sempre inédito; questões reais vêm somente das provas importadas
+          q.fonteLegal || q.fonte_legal || null,
           q.dificuldade || 'Média',
           q.enunciado,
           q.textoBase || q.texto_base || null,
@@ -1939,6 +2197,7 @@ app.post('/api/banco/buscar', (req, res) => {
         tipo: origemNorm,
         origem: origemNorm,
         fonte: q.provaRef ? q.fonte : (origemNorm === 'REAL' ? 'Prova Oficial Instituto AOCP' : 'Acervo Local • Padrão AOCP'),
+        fonteLegal: q.fonte_legal || null,
         dificuldade: q.provaRef ? q.dificuldade : dificuldadeEmpirica(q.total_acertos, q.total_erros, q.dificuldade),
         enunciado: q.enunciado,
         textoBase: q.texto_base || '',

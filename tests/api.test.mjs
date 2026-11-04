@@ -177,3 +177,35 @@ test('auditoria: banco saneado, sem duplicatas de provas e sem problemas', async
   const todas = await post('/banco/buscar', { disciplinas: [], tema: '', quantidade: 60, somenteIneditas: true });
   assert.ok(todas.body.questoes.every((q) => q.origem === 'INÉDITA'));
 });
+
+test('RAG Soldado 2026: FTS5 + BM25 + busca exata por artigo/súmula/ficha e isolamento de contexto', async () => {
+  // 1. Busca exata de Art. 5º XI na CF/88
+  const cf = await get('/base/buscar?disciplina=' + encodeURIComponent('Direito Constitucional') + '&q=' + encodeURIComponent('Art. 5 XI casa asilo inviolável'));
+  assert.ok(cf.resultados.length > 0);
+  assert.match(cf.resultados[0].referencia, /^Art\. 5º/);
+  assert.match(cf.resultados[0].texto, /asilo inviolável/i);
+
+  // 2. Estatuto PMPE (Lei Estadual PE 6.783/1974) e Súmula Vinculante 11
+  const pmpe = await get('/base/buscar?disciplina=' + encodeURIComponent('Direitos Humanos e Legislação Extravagante') + '&q=' + encodeURIComponent('Lei 6.783 Art. 27 ética policial-militar'));
+  assert.ok(pmpe.resultados.some((r) => r.fonte.includes('6.783')));
+
+  const sv11 = await get('/base/buscar?disciplina=' + encodeURIComponent('Direitos Humanos e Legislação Extravagante') + '&q=' + encodeURIComponent('Súmula Vinculante 11 algemas'));
+  assert.ok(sv11.resultados.length > 0);
+  assert.match(sv11.resultados[0].texto, /algemas/i);
+
+  // 3. Fichas Soldado: História de PE e Informática
+  const hist = await get('/base/buscar?disciplina=' + encodeURIComponent('História de Pernambuco') + '&q=' + encodeURIComponent('Guararapes 1648 Insurreição'));
+  assert.ok(hist.resultados.length > 0);
+  assert.equal(hist.resultados[0].disciplina, 'História de Pernambuco');
+
+  // 4. Isolamento estrito de tokens: pedir Art. 5º de Constitucional NÃO envia ECA nem Estatuto PMPE
+  const ctxArt5 = await get('/provas/contexto?disciplinas=' + encodeURIComponent('Direito Constitucional') + '&assunto=' + encodeURIComponent('Art. 5º inviolabilidade domiciliar'));
+  assert.match(ctxArt5.baseLegal, /Art\. 5º/);
+  assert.ok(!/8\.069|Estatuto da Criança|6\.783/i.test(ctxArt5.baseLegal), 'não vaza leis extravagantes em Direito Constitucional');
+
+  // 5. Simulado geral (assunto vazio) recebe basePorTopico enxuto sem ficar às cegas
+  const ctxGeral = await get('/provas/contexto?disciplinas=' + encodeURIComponent('Direito Constitucional,Informática'));
+  assert.ok(ctxGeral.basePorTopico && Object.keys(ctxGeral.basePorTopico).length >= 2, 'popula basePorTopico no simulado geral');
+  assert.ok(ctxGeral.baseLegal.length > 100);
+});
+

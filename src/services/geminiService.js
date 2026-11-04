@@ -163,6 +163,7 @@ export function normalizeQuestion(q, index = 0) {
     origem,
     tipoCognitivo: q.tipoCognitivo || q.sub_topico || 'SITUACAO_PROBLEMA',
     fonte: q.fonte || (origem === 'REAL' ? 'Banca Instituto AOCP' : 'Inédita • Padrão AOCP'),
+    fonteLegal: String(q.fonteLegal || q.fonte_legal || '').trim(),
     textoBase: q.textoBase || q.texto_base || '',
     enunciado: String(q.enunciado || '').trim(),
     dica: String(q.dica || '').trim(),
@@ -197,11 +198,11 @@ const FORMATOS_COGNITIVOS_AOCP = [
   },
   {
     tipo: 'ASSERTIVAS_ROMANAS',
-    instrucao: 'Julgamento de itens I, II, III e IV seguido de: "Analise as assertivas a seguir e assinale a alternativa que aponta a(s) correta(s)."'
+    instrucao: 'Julgamento de itens I, II, III e IV. IMPORTANTE: Separe estritamente cada assertiva com quebras de linha duplas no enunciado (exemplo: "Introdução contextualizada...\n\nI. Assertiva um...\n\nII. Assertiva dois...\n\nIII. Assertiva três...\n\nIV. Assertiva quatro...\n\nAnalise as assertivas a seguir e assinale a alternativa que aponta a(s) correta(s).").'
   },
   {
     tipo: 'VERDADEIRO_FALSO',
-    instrucao: 'Comando AOCP: "Informe se é verdadeiro (V) ou falso (F) o que se afirma a seguir e assinale a alternativa com a sequência correta." com 4 afirmativas iniciadas por ( ).'
+    instrucao: 'Comando AOCP com quebras de linha: "Informe se é verdadeiro (V) ou falso (F) o que se afirma a seguir e assinale a alternativa com a sequência correta:\n\n( ) Primeira afirmativa...\n\n( ) Segunda afirmativa...\n\n( ) Terceira afirmativa...\n\n( ) Quarta afirmativa..."'
   },
   {
     tipo: 'LEI_SECA_LITERAL',
@@ -269,8 +270,8 @@ function parseJsonSeguro(rawText) {
   return JSON.parse(cleaned);
 }
 
-// Monta o bloco de exemplos reais sem cortar item no meio
-function montarExemplosReais(itensProvas, snippetsProvas, limite = 7000) {
+// Monta o bloco de exemplos reais enxuto sem cortar item no meio (2 a 3 itens calibram o estilo AOCP sem desperdiçar tokens)
+function montarExemplosReais(itensProvas, snippetsProvas, limite = 2600) {
   if (Array.isArray(itensProvas) && itensProvas.length > 0) {
     const escolhidos = [];
     let total = 0;
@@ -345,6 +346,7 @@ async function generateBatchWithGemini({
   itensProvas = [],
   snippetsProvas = '',
   baseLegal = '',
+  basePorTopico = {},
   evitarRepeticao = '',
   topicosSugeridos = {},
   preferences = {}
@@ -354,42 +356,57 @@ async function generateBatchWithGemini({
   const letrasGabarito = ['A', 'B', 'C', 'D', 'E'];
 
   const blueprintLinhas = [];
+  const blocosPorTopicoDoLote = [];
+  const chavesTopicoUsadas = new Set();
+
   for (let i = 0; i < quantidade; i++) {
     const numGlobal = startIndex + i + 1;
     const discAlvo = activeDisciplinas[(startIndex + i) % activeDisciplinas.length];
     const letraSugerida = letrasGabarito[(startIndex + i * 2) % 5];
     const formato = FORMATOS_COGNITIVOS_AOCP[(startIndex + i) % FORMATOS_COGNITIVOS_AOCP.length];
-    // Sem assunto definido, cada questão recebe um tópico diferente (rodízio dos menos praticados)
+    // Sem assunto definido, cada questão recebe um tópico diferente (rodízio dos menos praticados do Edital Soldado PMPE 2026)
     const lista = topicosSugeridos[discAlvo] || [];
     const topicoAlvo = !assunto && lista.length > 0 ? lista[Math.floor((startIndex + i) / activeDisciplinas.length) % lista.length] : null;
+    if (topicoAlvo) {
+      const chave = `${discAlvo}::${topicoAlvo}`;
+      if (basePorTopico[chave] && !chavesTopicoUsadas.has(chave) && blocosPorTopicoDoLote.length < 3) {
+        chavesTopicoUsadas.add(chave);
+        blocosPorTopicoDoLote.push(basePorTopico[chave]);
+      }
+    }
     blueprintLinhas.push(
       `- Questão ${numGlobal}: Disciplina="${discAlvo}"${topicoAlvo ? ` | Tópico obrigatório="${topicoAlvo}"` : ''} | Origem="INÉDITA" | TipoCognitivo="${formato.tipo}" | Gabarito Alvo="${letraSugerida}" | Formato obrigatório: ${formato.instrucao}`
     );
   }
 
+  // Se o aluno digitou assunto, usa o baseLegal focado; se for simulado geral, injeta apenas as referências exatas dos tópicos deste lote!
+  const baseLegalDoLote = assunto
+    ? baseLegal.slice(0, 2200)
+    : (blocosPorTopicoDoLote.length > 0 ? blocosPorTopicoDoLote.join('\n\n').slice(0, 2200) : baseLegal.slice(0, 1800));
+
   const exemplos = montarExemplosReais(itensProvas, snippetsProvas);
 
-  const systemInstruction = `Você é um elaborador de questões sênior do INSTITUTO AOCP, especialista no concurso de Soldado da Polícia Militar de Pernambuco (PMPE).
-Sua tarefa é executar estritamente o BLUEPRINT DE ENGENHARIA DE ITENS solicitado pelo usuário, gerando exatamente ${quantidade} questões INÉDITAS no padrão AOCP.
+  const systemInstruction = `Você é um elaborador de questões sênior do INSTITUTO AOCP, especialista EXCLUSIVO no concurso de SOLDADO (Praça QPMG) da Polícia Militar de Pernambuco (PMPE — Edital 2026).
+Sua tarefa é executar estritamente o BLUEPRINT DE ENGENHARIA DE ITENS solicitado pelo usuário, gerando exatamente ${quantidade} questões INÉDITAS no padrão AOCP para Soldado PMPE (NUNCA cobre matérias exclusivas de Oficial/CFO como Direito Penal Militar, Estatuto do Desarmamento ou Estatística).
 
 REGRAS PSICOMÉTRICAS INEGOCIÁVEIS:
 1. Cada questão DEVE conter exatamente 5 alternativas (A, B, C, D, E) com tamanhos homogêneos e apenas 1 correta.
 2. NUNCA utilize "Todas as anteriores" ou "Nenhuma das alternativas".
-3. Em Língua Portuguesa, preencha SEMPRE o campo "textoBase" com um texto realista (180 a 320 palavras, parágrafos numerados) quando a questão cobrar interpretação, coesão ou reescrita.
+3. Em Língua Portuguesa, preencha SEMPRE o campo "textoBase" com um texto realista (180 a 300 palavras, parágrafos numerados) quando a questão cobrar interpretação, coesão ou reescrita.
 4. No objeto "explicacao.distratores", explique o erro APENAS das 4 alternativas incorretas (NÃO inclua a letra do gabarito dentro de distratores).
 5. Nível de dificuldade do lote: ${dif === 'dificil' ? 'Difícil (pegadinhas sutis de prazos, exceções e quóruns)' : dif === 'media' ? 'Médio (padrão oficial Soldado PMPE)' : 'Equilibrado (Fácil, Média e Difícil)'}.
 6. Todas as questões são INÉDITAS: nunca copie ou reconstrua uma questão das provas de referência; use-as apenas como modelo de estilo e nível de dificuldade.
-7. Para conteúdo normativo, cite artigo, inciso, prazo ou número de lei SOMENTE se constar nos "TRECHOS DE LEGISLAÇÃO" fornecidos ou se tiver certeza absoluta. Na dúvida, formule a questão sem numeração e deixe "fonteLegal" vazio. Preencha "fonteLegal" com a referência normativa efetivamente usada (ex.: "CF/88, art. 144, §5º").
+7. Para conteúdo normativo ou técnico-histórico, ancore-se nos "TRECHOS DE REFERÊNCIA OFICIAL / LEGISLAÇÃO" fornecidos. Preencha "fonteLegal" com a referência exata usada (ex.: "CF/88, Art. 5º, XI", "Lei nº 13.869/2019, Art. 13", "Lei Estadual PE nº 6.783/1974, Art. 27"). Nas demais matérias sem lei, deixe "fonteLegal" vazio.
 8. Resolva a questão no campo "explicacao.correta" antes de definir o "gabarito"; o gabarito DEVE ser a letra da alternativa que você justificou.`;
 
-  const userPrompt = `Gere exatamente ${quantidade} questões sobre o foco temático: "${assunto || 'Tópicos de maior incidência no edital Soldado PMPE'}".
+  const userPrompt = `Gere exatamente ${quantidade} questões sobre o foco temático: "${assunto || 'Tópicos oficiais do Edital Soldado PMPE 2026'}".
 
 BLUEPRINT OBRIGATÓRIO ITEM A ITEM:
 ${blueprintLinhas.join('\n')}
 
-${baseLegal ? `TRECHOS DE LEGISLAÇÃO (FONTE PRIMÁRIA — fundamente as questões normativas nestes textos):\n${baseLegal.slice(0, 6000)}\n` : ''}
-${evitarRepeticao ? `MEMÓRIA ANTI-REPETIÇÃO (NÃO repita os mesmos enunciados, cenários ou exemplos abaixo, já existentes no banco do aluno):\n${evitarRepeticao}\n` : ''}
-${exemplos ? `QUESTÕES REAIS DE REFERÊNCIA (apenas para calibrar estilo e dificuldade — NÃO copiar):\n${exemplos}\n` : ''}
+${baseLegalDoLote ? `TRECHOS DE REFERÊNCIA OFICIAL / LEGISLAÇÃO APLICÁVEL (Baseie-se estritamente nestes dispositivos para formular as alternativas e o gabarito das respectivas matérias):\n${baseLegalDoLote}\n` : ''}
+${evitarRepeticao ? `MEMÓRIA ANTI-REPETIÇÃO (NÃO repita estes enunciados/cenários):\n${evitarRepeticao}\n` : ''}
+${exemplos ? `QUESTÕES REAIS DE REFERÊNCIA (apenas para calibrar estilo AOCP — NÃO copiar):\n${exemplos}\n` : ''}
 
 Retorne APENAS um array JSON válido contendo exatamente ${quantidade} objetos no schema especificado.`;
 
@@ -416,8 +433,8 @@ Retorne APENAS um array JSON válido contendo exatamente ${quantidade} objetos n
     if (quantidade > 1) {
       console.warn(`[Gemini] JSON inválido${cortada ? ' (truncado)' : ''}; dividindo o lote de ${quantidade}.`);
       const metade = Math.ceil(quantidade / 2);
-      const a = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: metade, startIndex, itensProvas, snippetsProvas, baseLegal, evitarRepeticao, topicosSugeridos, preferences });
-      const b = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: quantidade - metade, startIndex: startIndex + metade, itensProvas, snippetsProvas, baseLegal, evitarRepeticao, topicosSugeridos, preferences });
+      const a = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: metade, startIndex, itensProvas, snippetsProvas, baseLegal, basePorTopico, evitarRepeticao, topicosSugeridos, preferences });
+      const b = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: quantidade - metade, startIndex: startIndex + metade, itensProvas, snippetsProvas, baseLegal, basePorTopico, evitarRepeticao, topicosSugeridos, preferences });
       return [...a, ...b];
     }
     throw new Error(`A IA devolveu uma resposta ilegível: ${err.message}`);
@@ -425,17 +442,18 @@ Retorne APENAS um array JSON válido contendo exatamente ${quantidade} objetos n
 
   return arr.map((q, idx) => {
     const n = normalizeQuestion(q, startIndex + idx);
-    // Tudo que a IA gera é inédito, independentemente do que ela declarar
-    return { ...n, origem: 'INÉDITA', tipo: 'INÉDITA', fonte: 'Inédita • Padrão AOCP' };
+    return { ...n, origem: 'INÉDITA', tipo: 'INÉDITA', fonte: 'Inédita • Padrão AOCP', _contextoVerificacao: baseLegalDoLote };
   });
 }
 
-// Segunda passada: o modelo resolve cada questão SEM ver o gabarito. Divergência => gabarito suspeito.
-export async function verificarQuestoesComIA({ apiKey, modelsToTry, questoes }) {
+// Segunda passada: o modelo resolve cada questão SEM ver o gabarito nem a explicação, mas COM acesso à letra da lei oficial usada
+// (impede falso descarte de questões corretas sobre leis estaduais de PE ou alterações legislativas recentes).
+export async function verificarQuestoesComIA({ apiKey, modelsToTry, questoes, baseLegal = '' }) {
   if (!questoes.length) return questoes;
-  const prompt = `Resolva cada questão de concurso abaixo de forma independente e cuidadosa. Responda apenas com a letra da alternativa que considera correta.
-
-${questoes.map((q, i) => `### QUESTÃO ${i + 1}\n${q.textoBase ? `Texto-base: ${q.textoBase}\n` : ''}${q.enunciado}\n${q.alternativas.map(a => `(${a.letra}) ${a.texto}`).join('\n')}`).join('\n\n')}
+  const contextoRef = (baseLegal || questoes.map(q => q._contextoVerificacao || '').find(Boolean) || '').slice(0, 2200);
+  const prompt = `Resolva cada questão de concurso abaixo (Soldado PMPE — Banca AOCP) de forma independente e rigorosa. Responda apenas com a letra da alternativa correta.
+${contextoRef ? `\nTEXTO OFICIAL DE REFERÊNCIA / LEGISLAÇÃO VIGENTE (Consulte obrigatoriamente caso a questão trate destes dispositivos):\n${contextoRef}\n` : ''}
+${questoes.map((q, i) => `### QUESTÃO ${i + 1}${q.fonteLegal ? ` [Ref: ${q.fonteLegal}]` : ''}\n${q.textoBase ? `Texto-base: ${q.textoBase}\n` : ''}${q.enunciado}\n${q.alternativas.map(a => `(${a.letra}) ${a.texto}`).join('\n')}`).join('\n\n')}
 
 Retorne APENAS um array JSON no formato [{"numero": 1, "resposta": "A", "confianca": "alta|media|baixa"}] com ${questoes.length} itens.`;
 
@@ -486,6 +504,7 @@ export async function generateQuestionsWithGemini({
   itensProvas = [],
   snippetsProvas = '',
   baseLegal = '',
+  basePorTopico = {},
   evitarRepeticao = '',
   topicosSugeridos = {},
   preferences = {}
@@ -521,7 +540,7 @@ export async function generateQuestionsWithGemini({
         const tam = Math.min(MAX_BATCH, restante);
         const lote = await generateBatchWithGemini({
           apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: tam, startIndex: inicio,
-          itensProvas, snippetsProvas, baseLegal, evitarRepeticao, topicosSugeridos, preferences
+          itensProvas, snippetsProvas, baseLegal, basePorTopico, evitarRepeticao, topicosSugeridos, preferences
         });
         brutas.push(...lote);
         inicio += tam;
@@ -555,13 +574,14 @@ export async function generateQuestionsWithGemini({
       console.warn('[Triagem] Servidor indisponível; seguindo sem detecção de duplicatas:', err.message);
     }
 
-    // 3) verificação independente (resolve sem gabarito)
-    const verificadas = await verificarQuestoesComIA({ apiKey, modelsToTry, questoes: triadas });
+    // 3) verificação independente (resolve sem gabarito, mas com acesso à base normativa oficial)
+    const verificadas = await verificarQuestoesComIA({ apiKey, modelsToTry, questoes: triadas, baseLegal });
     for (const q of verificadas) {
-      if (q.verificacao === 'DIVERGENTE') {
-        descartadas.push({ questao: q, motivo: `Gabarito (${q.gabarito}) divergiu da resolução independente (${q.respostaVerificacao}).`, tipo: 'DIVERGENTE' });
+      const { _contextoVerificacao, ...qLimpa } = q;
+      if (qLimpa.verificacao === 'DIVERGENTE') {
+        descartadas.push({ questao: qLimpa, motivo: `Gabarito (${qLimpa.gabarito}) divergiu da resolução independente (${qLimpa.respostaVerificacao}).`, tipo: 'DIVERGENTE' });
       } else {
-        aprovadas.push(q);
+        aprovadas.push(qLimpa);
       }
     }
   }

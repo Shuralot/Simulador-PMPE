@@ -242,6 +242,22 @@ export async function fetchBaseStats() {
   }
 }
 
+export async function buscarBaseLegal({ q = '', disciplina = '', topico = '', limite = 4 }) {
+  try {
+    const params = new URLSearchParams();
+    if (q) params.append('q', q);
+    if (disciplina) params.append('disciplina', disciplina);
+    if (topico) params.append('topico', topico);
+    if (limite) params.append('limite', String(limite));
+    const res = await fetch(`${API_BASE}/base/buscar?${params.toString()}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.resultados || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function removerBaseLegal(fonte) {
   const res = await fetch(`${API_BASE}/base/${encodeURIComponent(fonte)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover fonte da base legal.');

@@ -139,6 +139,7 @@ export default function App() {
             itensProvas: ctx.itens || [],
             snippetsProvas: ctx.snippets || '',
             baseLegal: ctx.baseLegal || '',
+            basePorTopico: ctx.basePorTopico || {},
             evitarRepeticao: ctx.evitarRepeticao || '',
             topicosSugeridos: ctx.topicosSugeridos || {},
             preferences

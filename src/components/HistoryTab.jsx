@@ -1,22 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
-  Trophy, 
-  TrendingUp, 
   Clock, 
   AlertTriangle, 
   CheckCircle2, 
-  XCircle, 
   Sparkles, 
-  RotateCcw, 
   Target, 
-  Layers, 
   Brain, 
   Trash2, 
   History,
-  Calendar,
-  ChevronDown, 
-  ChevronUp 
+  RefreshCw,
+  ArrowRight,
+  Zap,
+  AlertCircle
 } from 'lucide-react';
 import { 
   fetchDesempenho, 
@@ -24,8 +20,137 @@ import {
   revisarQuestaoCaderno,
   fetchSimulados,
   deleteSimulado,
-  clearAllSimulados
+  clearAllSimulados,
+  getSavedApiKey
 } from '../services/api';
+import LegalReferencePanel from './LegalReferencePanel';
+
+// Normaliza o retorno da IA para estrutura garantida de KPIs e plano tático
+function parseDiagnostic(raw, fallbackData) {
+  if (!raw && !fallbackData) return null;
+
+  // Se já for um objeto estruturado válido
+  if (raw && typeof raw === 'object' && raw.kpis && raw.resumoExecutivo) {
+    return raw;
+  }
+
+  let text = typeof raw === 'string' ? raw.trim() : '';
+
+  if (text) {
+    // Remove blocos de markdown caso venham no retorno
+    if (text.startsWith('```json')) {
+      text = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    } else if (text.startsWith('```')) {
+      text = text.replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
+    }
+
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object' && parsed.resumoExecutivo) {
+        return parsed;
+      }
+    } catch {
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          const parsed = JSON.parse(text.substring(firstBrace, lastBrace + 1));
+          if (parsed && typeof parsed === 'object' && parsed.resumoExecutivo) {
+            return parsed;
+          }
+        } catch {
+          // Continua para o gerador de resiliência
+        }
+      }
+    }
+  }
+
+  // Fallback tático calculado diretamente a partir dos dados reais do SQLite
+  const pace = fallbackData?.global?.tempoMedioPorQuestao || 0;
+  const taxa = fallbackData?.global?.taxaGeral || 0;
+  const totalQuestoes = fallbackData?.global?.totalQuestoes || 0;
+  const pendentes = fallbackData?.cadernoErros?.pendentes_hoje ?? fallbackData?.cadernoErros?.total_pendentes ?? 0;
+  const impulsivos = fallbackData?.global?.errosImpulsividade || 0;
+  const nota60 = Math.round((taxa / 100) * 60);
+
+  const topicoCritico = fallbackData?.zonasCriticas?.[0] || null;
+  const discAlvo = topicoCritico?.disciplina || fallbackData?.disciplinas?.[0]?.disciplina || 'Direito Constitucional';
+  const topicoAlvo = topicoCritico?.assunto || 'Direitos e Deveres Individuais (Art. 5º)';
+
+  const classificacao = taxa >= 75 ? 'Competitivo' : taxa >= 60 ? 'Em Evolução' : 'Atenção Crítica';
+
+  const resumo = typeof raw === 'string' && raw.length > 25 && !raw.includes('{')
+    ? raw.replace(/[*#]/g, '').trim()
+    : `Com taxa de acerto de ${taxa}% (${totalQuestoes} questões resolvidas) e ritmo médio de ${pace}s/questão, você mantém excelente velocidade de prova. O foco prioritário deve ser zerar as pendências do Caderno de Erros e blindar os tópicos mais recorrentes da banca Instituto AOCP.`;
+
+  return {
+    scoreProntidao: taxa || 70,
+    classificacao,
+    resumoExecutivo: resumo,
+    kpis: [
+      {
+        titulo: 'Ritmo de Prova',
+        valor: `${pace}s / q`,
+        avaliacao: pace < 50 ? 'Ágil' : pace <= 120 ? 'Ideal' : 'Lento',
+        status: pace <= 120 ? 'positivo' : 'alerta',
+        descricao: 'Tempo por questão comparado ao limite oficial de 2m30s da PMPE. Preserva tempo para redação e RLM.'
+      },
+      {
+        titulo: 'Precisão Real',
+        valor: `${taxa}%`,
+        avaliacao: taxa >= 75 ? 'Faixa de Corte' : taxa >= 60 ? 'Regular' : 'Abaixo do Corte',
+        status: taxa >= 75 ? 'positivo' : taxa >= 60 ? 'positivo' : 'critico',
+        descricao: `Projeção atual de ${nota60} / 60 pontos na prova objetiva.`
+      },
+      {
+        titulo: 'Caderno de Erros',
+        valor: `${pendentes} itens`,
+        avaliacao: pendentes > 0 ? 'Revisar Hoje' : 'Em Dia',
+        status: pendentes > 10 ? 'alerta' : 'positivo',
+        descricao: 'Ciclo de repetição espaçada Leitner para fixar conceitos errados.'
+      },
+      {
+        titulo: 'Radar Pegadinha',
+        valor: impulsivos > 2 ? 'Risco Moderado' : 'Baixo Risco',
+        avaliacao: impulsivos > 2 ? 'Atenção' : 'Seguro',
+        status: impulsivos > 2 ? 'alerta' : 'positivo',
+        descricao: impulsivos > 0 ? `${impulsivos} erro(s) em menos de 30s.` : 'Sem sinais de precipitação nas questões respondidas.'
+      }
+    ],
+    planoDeAtaque: {
+      disciplina: discAlvo,
+      topico: topicoAlvo,
+      prioridade: 'Alta',
+      motivo: 'Tópico de alta incidência no histórico da banca AOCP onde se concentram os erros recentes.',
+      metaEstudo: 'Resolver bateria de 15 questões e revisar exceções dos artigos cobrados.',
+      dicaTatica: 'A banca Instituto AOCP foca na literalidade da lei e na inversão de conceitos (ex: autoridade policial vs autoridade judicial).'
+    },
+    pontosDeAtencao: (fallbackData?.zonasCriticas || []).slice(0, 3).map(z => ({
+      disciplina: z.disciplina,
+      topico: z.assunto,
+      problema: `Taxa de acerto de ${z.taxa}% com ${z.erros} erro(s) registrados.`,
+      gravidade: z.taxa < 50 ? 'alta' : 'media'
+    })),
+    pontosFortes: (fallbackData?.pontosFortes || []).length > 0
+      ? fallbackData.pontosFortes.slice(0, 3).map(p => `${p.disciplina}: ${p.assunto} (${p.taxa}% de precisão)`)
+      : [
+          `Ritmo de prova acelerado (${pace}s/questão) com boa agilidade de leitura`,
+          'Aproveitamento competitivo nas primeiras baterias'
+        ],
+    acoesRecomendadas: [
+      {
+        acao: `Revisar as ${pendentes} pendências no Caderno de Erros`,
+        impacto: 'Evita a curva do esquecimento de conteúdos que já caíram no seu simulado.',
+        tipoAcao: 'caderno'
+      },
+      {
+        acao: `Treinar bateria em ${discAlvo}`,
+        impacto: 'Consolida pontos decisivos em matéria de peso para Soldado da PMPE.',
+        tipoAcao: 'treino'
+      }
+    ]
+  };
+}
 
 export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStartCadernoQuiz }) {
   const [data, setData] = useState(null);
@@ -40,6 +165,8 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
   // Diagnóstico Pedagógico com Gemini
   const [diagnostic, setDiagnostic] = useState(null);
   const [loadingDiagnostic, setLoadingDiagnostic] = useState(false);
+  const [diagnosticTimestamp, setDiagnosticTimestamp] = useState(null);
+  const [diagnosticNotice, setDiagnosticNotice] = useState(null);
 
   // Questão aberta no caderno de erros
   const [revealedAnswers, setRevealedAnswers] = useState({});
@@ -84,6 +211,20 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
     loadData();
     loadCaderno(false);
     loadSimulados();
+
+    try {
+      const cached = localStorage.getItem('mentor_ia_diagnostico_cache');
+      const cachedTime = localStorage.getItem('mentor_ia_diagnostico_date');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed) {
+          setDiagnostic(parsed);
+          if (cachedTime) setDiagnosticTimestamp(cachedTime);
+        }
+      }
+    } catch {
+      // Ignora erro de cache
+    }
   }, []);
 
   const handleDeleteSimulado = async (id) => {
@@ -117,52 +258,202 @@ export default function HistoryTab({ apiKey, model, onStartTargetedQuiz, onStart
   };
 
   const handleGenerateDiagnostic = async () => {
-    if (!apiKey) {
-      alert('Por favor, configure sua chave de API na aba Opções para gerar o diagnóstico.');
-      return;
+    setLoadingDiagnostic(true);
+    setDiagnosticNotice(null);
+
+    let effectiveKey = apiKey;
+    if (!effectiveKey) {
+      try {
+        const storedKey = localStorage.getItem('gemini_api_key');
+        if (storedKey) effectiveKey = storedKey;
+        else {
+          const dbKey = await getSavedApiKey();
+          if (dbKey) effectiveKey = dbKey;
+        }
+      } catch (e) {
+        console.warn('Erro ao obter chave do banco:', e);
+      }
     }
 
-    setLoadingDiagnostic(true);
-    setDiagnostic(null);
+    if (!effectiveKey) {
+      // Gera diagnóstico resiliente estruturado com base direta nas métricas do SQLite
+      const localDiagnostic = parseDiagnostic(null, data);
+      setDiagnostic(localDiagnostic);
+      const nowStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (' + new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ')';
+      setDiagnosticTimestamp(nowStr);
+      localStorage.setItem('mentor_ia_diagnostico_cache', JSON.stringify(localDiagnostic));
+      localStorage.setItem('mentor_ia_diagnostico_date', nowStr);
+      setDiagnosticNotice('Chave Gemini não cadastrada em Opções. Exibindo diagnóstico preliminar calibrado pelo histórico do banco de dados.');
+      setLoadingDiagnostic(false);
+      return;
+    }
 
     try {
       const summaryPayload = {
         taxaGeral: data?.global?.taxaGeral,
         totalQuestoes: data?.global?.totalQuestoes,
-        tempoMedio: data?.global?.tempoMedioPorQuestao,
-        disciplinas: data?.disciplinas,
-        zonasCriticas: data?.zonasCriticas,
-        pontosFortes: data?.pontosFortes
+        totalAcertos: data?.global?.totalAcertos,
+        tempoMedioSegundos: data?.global?.tempoMedioPorQuestao,
+        errosImpulsividade: data?.global?.errosImpulsividade,
+        questoesLentas: data?.global?.questoesLentas,
+        notaProjetada60: data?.global?.notaProjetada60,
+        cadernoErros: {
+          pendentesHoje: data?.cadernoErros?.pendentes_hoje,
+          totalPendentes: data?.cadernoErros?.total_pendentes,
+          totalDominadas: data?.cadernoErros?.total_dominadas
+        },
+        calibracao: data?.global?.calibracao,
+        disciplinas: (data?.disciplinas || []).map(d => ({
+          disciplina: d.disciplina,
+          taxa: d.taxa,
+          acertos: d.acertos,
+          total: d.total,
+          tempoMedio: d.tempo_medio,
+          tendencia: d.tendencia
+        })),
+        zonasCriticas: (data?.zonasCriticas || []).slice(0, 5).map(z => ({
+          disciplina: z.disciplina,
+          topico: z.assunto,
+          taxa: z.taxa,
+          erros: z.erros,
+          total: z.total
+        })),
+        pontosFortes: (data?.pontosFortes || []).slice(0, 5).map(p => ({
+          disciplina: p.disciplina,
+          topico: p.assunto,
+          taxa: p.taxa,
+          total: p.total
+        })),
+        ultimosErros: (data?.ultimosErros || []).slice(0, 5).map(e => ({
+          disciplina: e.disciplina,
+          topico: e.assunto,
+          tempoSegundos: e.tempo_segundos
+        }))
       };
 
-      const prompt = `Você é um mentor especialista em aprovação no concurso de Soldado da PMPE e banca Instituto AOCP.
-Analise os seguintes dados REAIS gravados no banco SQLite do estudante:
+      const prompt = `Você é um mentor especialista de elite em aprovação para Soldado da Polícia Militar de Pernambuco (PMPE), com domínio minucioso da banca examinadora Instituto AOCP.
+Analise os seguintes dados estatísticos REAIS do aluno, gravados no banco SQLite:
 ${JSON.stringify(summaryPayload, null, 2)}
 
-Elabore um DIAGNÓSTICO TÁTICO ESTRATÉGICO e DIRETO AO PONTO com:
-1. 🎯 PLANO DE ATAQUE PARA HOJE: Qual disciplina e tópico específico o aluno deve estudar hoje e por quê.
-2. ⚠️ PONTOS DE ALERTA: Em quais conteúdos ele está perdendo pontos.
-3. ⏱️ GESTÃO DE TEMPO: Análise do tempo médio por questão comparado ao limite oficial da PMPE.
-4. 🚀 RECOMENDAÇÃO PRÁTICA: 2 ações para os próximos dias.`;
+Contexto da prova PMPE (Instituto AOCP):
+- 60 questões objetivas (Língua Portuguesa 10, História de PE 10, RLM 10, Informática 10, Direito Constitucional 10, Direitos Humanos e Legislação Extravagante 10).
+- Duração total: 4 horas (~2m20s a 2m30s por questão com cartão-resposta).
+- Nota de corte média para o TAF: 40 a 48 pontos (66% a 80%).
+
+Instruções cruciais:
+1. Avalie o ritmo do aluno (${data?.global?.tempoMedioPorQuestao || 0}s/q): se for rápido (<50s), avalie se ele está ágil e assertivo ou sob risco de impulsividade.
+2. Identifique a disciplina e tópico onde ele mais perde pontos ou precisa blindar a pontuação.
+3. Elabore um plano de ataque cirúrgico e dicas sobre armadilhas da banca AOCP.
+
+RESPONDA EXCLUSIVAMENTE EM FORMATO JSON PURO (sem \`\`\`json, sem introdução):
+{
+  "scoreProntidao": ${data?.global?.taxaGeral || 75},
+  "classificacao": "${(data?.global?.taxaGeral || 0) >= 75 ? 'Competitivo' : (data?.global?.taxaGeral || 0) >= 60 ? 'Em Evolução' : 'Atenção Crítica'}",
+  "resumoExecutivo": "2 a 3 frases densas e motivadoras avaliando a prontidão real do candidato e o principal ajuste de estudo.",
+  "kpis": [
+    {
+      "titulo": "Ritmo de Prova",
+      "valor": "${data?.global?.tempoMedioPorQuestao || 0}s / q",
+      "avaliacao": "${(data?.global?.tempoMedioPorQuestao || 0) < 50 ? 'Ágil' : 'Equilibrado'}",
+      "status": "positivo",
+      "descricao": "Tempo de resolução comparado ao limite oficial de 2m30s da PMPE."
+    },
+    {
+      "titulo": "Taxa de Acertos",
+      "valor": "${data?.global?.taxaGeral || 0}%",
+      "avaliacao": "${(data?.global?.taxaGeral || 0) >= 75 ? 'Faixa de Corte' : 'Em Busca de Corte'}",
+      "status": "positivo",
+      "descricao": "Aproveitamento geral projetado para pontuação competitiva."
+    },
+    {
+      "titulo": "Caderno de Erros",
+      "valor": "${data?.cadernoErros?.pendentes_hoje || 0} pendentes",
+      "avaliacao": "${(data?.cadernoErros?.pendentes_hoje || 0) > 0 ? 'Revisar' : 'Em Dia'}",
+      "status": "${(data?.cadernoErros?.pendentes_hoje || 0) > 0 ? 'alerta' : 'positivo'}",
+      "descricao": "Itens aguardando repetição espaçada no método Leitner."
+    },
+    {
+      "titulo": "Filtro Pegadinha",
+      "valor": "Baixo Risco",
+      "avaliacao": "Seguro",
+      "status": "positivo",
+      "descricao": "Avaliação de erros precipitados (<30s) ou excesso de confiança."
+    }
+  ],
+  "planoDeAtaque": {
+    "disciplina": "Nome exato da matéria prioritária",
+    "topico": "Tópico prioritário para hoje",
+    "prioridade": "Alta",
+    "motivo": "Por que focar exatamente neste conteúdo agora.",
+    "metaEstudo": "Meta prática de estudo (ex: resolver 15 questões focando em prazos).",
+    "dicaTatica": "Dica estratégica de como a banca AOCP cobra este conteúdo."
+  },
+  "pontosDeAtencao": [
+    {
+      "disciplina": "Nome da Matéria",
+      "topico": "Tópico com erros",
+      "problema": "Onde está a falha cognitiva ou falta de memorização.",
+      "gravidade": "alta"
+    }
+  ],
+  "pontosFortes": [
+    "Ponto forte demonstrado pelo desempenho do aluno.",
+    "Outro ponto forte que deve ser mantido com revisões periódicas."
+  ],
+  "acoesRecomendadas": [
+    {
+      "acao": "Revisar as pendências no Caderno de Erros",
+      "impacto": "Garante retenção na memória de longo prazo.",
+      "tipoAcao": "caderno"
+    },
+    {
+      "acao": "Treinar bateria no tópico crítico",
+      "impacto": "Converte ponto fraco em pontuação líquida garantida.",
+      "tipoAcao": "treino"
+    }
+  ]
+}`;
 
       const activeModel = model || 'gemini-3.8-flash';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${effectiveKey}`;
 
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3 }
+          generationConfig: {
+            temperature: 0.2,
+            responseMimeType: 'application/json'
+          }
         })
       });
 
-      if (!res.ok) throw new Error('Falha ao comunicar com a IA para o diagnóstico.');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error?.message || `Erro ${res.status} ao comunicar com a IA.`);
+      }
+
       const json = await res.json();
-      const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      setDiagnostic(text);
+      const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
+      const parsed = parseDiagnostic(rawText, data);
+
+      if (parsed) {
+        setDiagnostic(parsed);
+        const nowStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (' + new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ')';
+        setDiagnosticTimestamp(nowStr);
+        localStorage.setItem('mentor_ia_diagnostico_cache', JSON.stringify(parsed));
+        localStorage.setItem('mentor_ia_diagnostico_date', nowStr);
+      }
     } catch (err) {
-      alert(err.message);
+      console.warn('Erro ao consultar Gemini, usando fallback de alta precisão:', err);
+      const localDiagnostic = parseDiagnostic(null, data);
+      setDiagnostic(localDiagnostic);
+      const nowStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (' + new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ')';
+      setDiagnosticTimestamp(nowStr);
+      localStorage.setItem('mentor_ia_diagnostico_cache', JSON.stringify(localDiagnostic));
+      localStorage.setItem('mentor_ia_diagnostico_date', nowStr);
+      setDiagnosticNotice(`IA temporariamente indisponível (${err.message}). Exibindo diagnóstico estratégico calculado a partir das suas métricas do SQLite.`);
     } finally {
       setLoadingDiagnostic(false);
     }
@@ -427,30 +718,331 @@ Elabore um DIAGNÓSTICO TÁTICO ESTRATÉGICO e DIRETO AO PONTO com:
               </div>
 
               {/* 2. DIAGNÓSTICO TÁTICO COM GEMINI */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08]">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Sparkles className="w-5 h-5 text-amber-300" />
-                    <h3 className="text-base sm:text-lg font-bold text-slate-100">Mentor IA: Diagnóstico de Desempenho</h3>
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#121929] border border-white/[0.08] relative overflow-hidden shadow-2xl space-y-6">
+                {/* Glow decorativo de fundo */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Header do Mentor */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.06] relative z-10">
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-amber-400/10 text-amber-300 border border-amber-400/20 shrink-0">
+                      <Sparkles className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <h3 className="text-lg sm:text-xl font-bold text-slate-100">Mentor IA: Diagnóstico de Desempenho</h3>
+                        {diagnostic?.classificacao && (
+                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide border ${
+                            diagnostic.classificacao === 'Excelente' || diagnostic.classificacao === 'Competitivo'
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : diagnostic.classificacao === 'Em Evolução'
+                              ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                              : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                          }`}>
+                            {diagnostic.classificacao}
+                          </span>
+                        )}
+                        {diagnostic?.scoreProntidao !== undefined && (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/[0.04] text-slate-300 border border-white/[0.08] font-mono font-semibold">
+                            Prontidão: {diagnostic.scoreProntidao}%
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                        Análise tática calibrada com base nos seus dados do SQLite e nos critérios de corte da banca Instituto AOCP
+                      </p>
+                    </div>
                   </div>
 
-                  <button
-                    onClick={handleGenerateDiagnostic}
-                    disabled={loadingDiagnostic}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {loadingDiagnostic ? 'Analisando...' : 'Atualizar Diagnóstico'}
-                  </button>
+                  <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                    {diagnosticTimestamp && (
+                      <span className="text-xs text-slate-500 font-mono hidden md:inline-block">
+                        {diagnosticTimestamp}
+                      </span>
+                    )}
+                    <button
+                      onClick={handleGenerateDiagnostic}
+                      disabled={loadingDiagnostic}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-indigo-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${loadingDiagnostic ? 'animate-spin' : ''}`} />
+                      <span>{loadingDiagnostic ? 'Analisando Dados...' : diagnostic ? 'Atualizar Diagnóstico' : 'Gerar Diagnóstico'}</span>
+                    </button>
+                  </div>
                 </div>
 
-                {diagnostic ? (
-                  <div className="mt-4 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] text-sm sm:text-base text-slate-200 whitespace-pre-line leading-relaxed">
-                    {diagnostic}
+                {/* Notificação/Aviso informativo se houver */}
+                {diagnosticNotice && (
+                  <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs sm:text-sm flex items-center justify-between gap-3 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-indigo-400" />
+                      <span>{diagnosticNotice}</span>
+                    </div>
+                    <button onClick={() => setDiagnosticNotice(null)} className="text-indigo-400 hover:text-white cursor-pointer">
+                      ✕
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-xs sm:text-sm text-slate-400">
-                    Clique em &ldquo;Atualizar Diagnóstico&rdquo; para que a IA analise seus erros mais frequentes e oriente seu estudo.
-                  </p>
+                )}
+
+                {/* Estado de Carregamento */}
+                {loadingDiagnostic && (
+                  <div className="py-10 px-6 rounded-2xl bg-indigo-950/20 border border-indigo-500/20 text-center space-y-3 animate-pulse">
+                    <div className="w-10 h-10 border-3 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <h4 className="text-sm sm:text-base font-bold text-slate-200">
+                      O Mentor IA está analisando seu histórico e cruzando com a banca AOCP...
+                    </h4>
+                    <p className="text-xs text-slate-400 max-w-lg mx-auto">
+                      Examinando tempo médio por questão, taxa de assertividade por matéria, questões com dúvida e caderno de erros para formular seu plano tático.
+                    </p>
+                  </div>
+                )}
+
+                {/* Conteúdo Rico do Diagnóstico */}
+                {!loadingDiagnostic && diagnostic && (
+                  <div className="space-y-6">
+                    {/* 1. Resumo Executivo do Mentor */}
+                    {diagnostic.resumoExecutivo && (
+                      <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-[#141d33] to-[#121929] border border-indigo-500/25 flex items-start gap-3.5">
+                        <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0 mt-0.5">
+                          <Brain className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                            Parecer do Mentor Pedagógico
+                          </span>
+                          <p className="text-sm sm:text-base text-slate-200 leading-relaxed font-medium">
+                            {diagnostic.resumoExecutivo}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 2. Grid de 4 KPIs Táticos do Mentor */}
+                    {Array.isArray(diagnostic.kpis) && diagnostic.kpis.length > 0 && (
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                        {diagnostic.kpis.map((kpi, idx) => (
+                          <div
+                            key={idx}
+                            className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08] flex flex-col justify-between hover:border-white/[0.15] transition-colors"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-1 mb-1.5">
+                                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                                  {kpi.titulo}
+                                </span>
+                                <span
+                                  className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                                    kpi.status === 'positivo'
+                                      ? 'bg-emerald-500/15 text-emerald-400'
+                                      : kpi.status === 'alerta'
+                                      ? 'bg-amber-500/15 text-amber-400'
+                                      : 'bg-rose-500/15 text-rose-400'
+                                  }`}
+                                >
+                                  {kpi.avaliacao}
+                                </span>
+                              </div>
+                              <div className="text-xl sm:text-2xl font-black text-slate-100 font-mono">
+                                {kpi.valor}
+                              </div>
+                            </div>
+                            <p className="text-[11px] sm:text-xs text-slate-400 mt-2.5 leading-relaxed">
+                              {kpi.descricao}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 3. Hero Card: Plano de Ataque para Hoje */}
+                    {diagnostic.planoDeAtaque && (
+                      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-indigo-950/50 via-[#131b2e] to-[#0f1422] border border-indigo-500/30 space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300">
+                              <Target className="w-4 h-4" />
+                            </span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                              Plano de Ataque para Hoje
+                            </span>
+                          </div>
+                          {diagnostic.planoDeAtaque.prioridade && (
+                            <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">
+                              Prioridade: {diagnostic.planoDeAtaque.prioridade}
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-base sm:text-lg font-bold text-slate-100">
+                            {diagnostic.planoDeAtaque.disciplina}
+                            {diagnostic.planoDeAtaque.topico && (
+                              <span className="text-indigo-300 font-medium"> — {diagnostic.planoDeAtaque.topico}</span>
+                            )}
+                          </h4>
+                          <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
+                            {diagnostic.planoDeAtaque.motivo}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                          {diagnostic.planoDeAtaque.metaEstudo && (
+                            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs sm:text-sm">
+                              <span className="text-indigo-400 font-bold block mb-1">🎯 Meta Prática:</span>
+                              <span className="text-slate-300">{diagnostic.planoDeAtaque.metaEstudo}</span>
+                            </div>
+                          )}
+                          {diagnostic.planoDeAtaque.dicaTatica && (
+                            <div className="p-3 rounded-xl bg-amber-500/[0.05] border border-amber-500/20 text-xs sm:text-sm">
+                              <span className="text-amber-300 font-bold block mb-1">💡 Dica da Banca AOCP:</span>
+                              <span className="text-slate-300">{diagnostic.planoDeAtaque.dicaTatica}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {onStartTargetedQuiz && diagnostic.planoDeAtaque.disciplina && (
+                          <div className="pt-2 flex justify-end">
+                            <button
+                              onClick={() => onStartTargetedQuiz(
+                                diagnostic.planoDeAtaque.disciplina,
+                                diagnostic.planoDeAtaque.topico || ''
+                              )}
+                              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all cursor-pointer hover:translate-x-0.5"
+                            >
+                              <span>Treinar este Tópico no Simulado</span>
+                              <ArrowRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 4. Colunas: Pontos de Alerta vs. Pontos Fortes */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Pontos de Atenção */}
+                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+                        <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span>Pontos de Alerta & Riscos</span>
+                        </div>
+                        {Array.isArray(diagnostic.pontosDeAtencao) && diagnostic.pontosDeAtencao.length > 0 ? (
+                          <div className="space-y-2.5">
+                            {diagnostic.pontosDeAtencao.map((alerta, i) => (
+                              <div key={i} className="p-3 rounded-xl bg-rose-500/[0.06] border border-rose-500/15 text-xs sm:text-sm">
+                                <div className="flex items-center justify-between font-semibold text-rose-300 mb-1">
+                                  <span>{alerta.disciplina} • {alerta.topico}</span>
+                                </div>
+                                <p className="text-slate-300">{alerta.problema}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400">Nenhum ponto crítico grave registrado no momento.</p>
+                        )}
+                      </div>
+
+                      {/* Pontos Fortes */}
+                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+                        <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Pontos Fortes & Consolidados</span>
+                        </div>
+                        {Array.isArray(diagnostic.pontosFortes) && diagnostic.pontosFortes.length > 0 ? (
+                          <div className="space-y-2">
+                            {diagnostic.pontosFortes.map((forte, i) => (
+                              <div key={i} className="p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 text-xs sm:text-sm text-slate-300 flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>{typeof forte === 'string' ? forte : forte.topico || forte.descricao}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400">Resolva mais simulados para consolidar sua base estatística.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 5. Ações Práticas Recomendadas */}
+                    {Array.isArray(diagnostic.acoesRecomendadas) && diagnostic.acoesRecomendadas.length > 0 && (
+                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+                        <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+                          <Zap className="w-4 h-4" />
+                          <span>Ações Táticas Recomendadas</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {diagnostic.acoesRecomendadas.map((acao, i) => (
+                            <div
+                              key={i}
+                              className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between gap-3"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-xs sm:text-sm font-semibold text-slate-200">
+                                  {acao.acao}
+                                </div>
+                                <div className="text-xs text-slate-400 mt-0.5">
+                                  {acao.impacto}
+                                </div>
+                              </div>
+                              {acao.tipoAcao === 'caderno' && (
+                                <button
+                                  onClick={() => setActiveSubTab('erros')}
+                                  className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold shrink-0 transition-colors cursor-pointer"
+                                >
+                                  Abrir Caderno
+                                </button>
+                              )}
+                              {acao.tipoAcao === 'treino' && onStartTargetedQuiz && (
+                                <button
+                                  onClick={() => onStartTargetedQuiz(
+                                    diagnostic.planoDeAtaque?.disciplina || '',
+                                    diagnostic.planoDeAtaque?.topico || ''
+                                  )}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-xs font-bold shrink-0 transition-colors cursor-pointer"
+                                >
+                                  Iniciar
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Estado Inicial (Antes de gerar pela primeira vez) */}
+                {!loadingDiagnostic && !diagnostic && (
+                  <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-4">
+                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                      Clique em <strong>&ldquo;Atualizar Diagnóstico&rdquo;</strong> para que a Inteligência Artificial examine seus dados reais no banco de dados SQLite e elabore um plano de estudos tático e personalizado.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                      <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                        <span className="text-xs font-bold text-indigo-400 block flex items-center gap-1.5">
+                          <Target className="w-3.5 h-3.5" />
+                          <span>Zonas Críticas</span>
+                        </span>
+                        <p className="text-[11px] text-slate-400">Mapeamento dos tópicos onde você mais erra e precisam de blindagem.</p>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                        <span className="text-xs font-bold text-amber-400 block flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Calibração de Ritmo</span>
+                        </span>
+                        <p className="text-[11px] text-slate-400">Comparação do seu tempo médio por questão com a margem da PMPE (2m30s).</p>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                        <span className="text-xs font-bold text-emerald-400 block flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>Plano Imediato</span>
+                        </span>
+                        <p className="text-[11px] text-slate-400">Indicação cirúrgica de qual matéria e tópico estudar hoje para subir sua nota.</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -556,9 +1148,10 @@ Elabore um DIAGNÓSTICO TÁTICO ESTRATÉGICO e DIRETO AO PONTO com:
                     </div>
 
                     {isRevealed && (
-                      <div className="mt-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-sm text-slate-200 space-y-1.5">
+                      <div className="mt-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-sm text-slate-200 space-y-2">
                         <div className="text-emerald-400 font-bold">Gabarito: Letra ({q.gabarito})</div>
                         <p>{q.explicacao?.correta}</p>
+                        <LegalReferencePanel question={q} />
                       </div>
                     )}
                   </div>

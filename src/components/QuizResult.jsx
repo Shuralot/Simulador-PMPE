@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import LegalReferencePanel from './LegalReferencePanel';
+import SeloConfianca, { BotoesGabarito } from './SeloConfianca';
 
 export default function QuizResult({ 
   resultData, 
@@ -256,6 +257,8 @@ export default function QuizResult({
                           Comentário da Banca AOCP:
                         </span>
                         <p className="leading-relaxed">{q.explicacao.correta}</p>
+                        <div className="pt-1"><SeloConfianca questao={q} /></div>
+                        <BotoesGabarito questao={q} />
                         <LegalReferencePanel question={q} />
                       </div>
                     )}

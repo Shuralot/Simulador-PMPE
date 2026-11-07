@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import LegalReferencePanel from './LegalReferencePanel';
 import FormattedQuestionText from './FormattedQuestionText';
+import SeloConfianca from './SeloConfianca';
 
 const HIGHLIGHT_PALETTE = [
   { id: 'yellow', name: 'Amarelo', bg: '#facc15' },
@@ -452,6 +453,7 @@ export default function QuizRunner({
             <span>
               {currentQ.origem === 'REAL' ? (currentQ.fonte || 'Banca AOCP') : 'Inédita AOCP'}
             </span>
+            <SeloConfianca questao={currentQ} />
           </div>
 
           <div className="flex items-center gap-2">

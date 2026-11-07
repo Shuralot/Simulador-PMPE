@@ -247,3 +247,33 @@ test('busca de questões parecidas: acha pelo termo nas alternativas e não devo
   assert.deepEqual(r.map((x) => x.q.id), [1, 3]);
   assert.deepEqual(buscarQuestoesParecidas('xyz qwerty', qs), []);
 });
+
+test('filtro de tema: sigla curta casa só palavra inteira ("ECA" não pega "mecanismos")', async () => {
+  const { buildTemaMatcher } = await import('../lib/temaMatcher.mjs');
+  const eca = buildTemaMatcher('ECA');
+  assert.equal(eca.match('Lei que criou mecanismos de proteção; peça processual; lei seca'), false);
+  assert.equal(eca.match('Nos termos do ECA, o adolescente apreendido...'), true);
+  assert.equal(eca.match('Lei Federal nº 8.069/1990 (Estatuto da Criança e do Adolescente)'), true);
+  assert.equal(buildTemaMatcher('lei 8069').match('Lei nº 8.069/1990'), true);
+  assert.equal(buildTemaMatcher('medidas socioeducativas').match('A medida socioeducativa de internação'), true);
+});
+
+test('conferirFonteLegal: exige que o artigo citado seja o do trecho fornecido', async () => {
+  const { conferirFonteLegal } = await import('../lib/validacaoQuestao.mjs');
+  const trecho = { referencia: 'Art. 121º (§2 a §3)' };
+  assert.equal(conferirFonteLegal({ fonteLegal: 'Lei Federal nº 8.069/1990, Art. 121, §§ 2º e 3º' }, trecho).ok, true);
+  assert.equal(conferirFonteLegal({ fonteLegal: 'Lei nº 8.069/1990, Art. 172' }, trecho).ok, false);
+  assert.equal(conferirFonteLegal({ fonteLegal: 'Lei nº 8.121/1990' }, trecho).ok, false); // número da lei não vale como artigo
+  assert.equal(conferirFonteLegal({ fonteLegal: '' }, trecho).ok, false);
+  assert.deepEqual(conferirFonteLegal({}, null), { ok: true, conferida: false });
+  assert.equal(conferirFonteLegal({ fonteLegal: 'SV 11' }, { referencia: 'Súmula Vinculante 11' }).ok, true);
+});
+
+test('selo de confiança: oficial, conferida, verificada pela IA e treino', async () => {
+  const { seloConfianca } = await import('../lib/confianca.mjs');
+  assert.equal(seloConfianca({ origem: 'REAL' }).nivel, 'oficial');
+  assert.equal(seloConfianca({ origem: 'INÉDITA', verificada: 1, refConferida: 1 }).nivel, 'conferida');
+  assert.equal(seloConfianca({ origem: 'INÉDITA', verificacao: 'OK' }).nivel, 'ia');
+  assert.equal(seloConfianca({ origem: 'INÉDITA' }).nivel, 'treino');
+  assert.equal(seloConfianca({ origem: 'INÉDITA', revisada: 1 }).nivel, 'revisada');
+});

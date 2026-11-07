@@ -773,7 +773,12 @@ app.get('/api/provas/contexto', (req, res) => {
       sql += ` AND qp.disciplina IN (${listaDisciplinas.map(() => '?').join(',')})`;
       params.push(...listaDisciplinas);
     }
-    const candidateQuestions = db.prepare(sql).all(...params);
+    let candidateQuestions = db.prepare(sql).all(...params);
+    // Exemplos de estilo do MESMO tópico (evita a IA copiar assunto de outra lei); só filtra se sobrar material suficiente
+    if (topicosRelacionados.length > 0) {
+      const doTopico = candidateQuestions.filter((c) => topicosRelacionados.includes(c.topico));
+      if (doTopico.length >= 2) candidateQuestions = doTopico;
+    }
 
     // Anti-repetição enxuta (máx 8 itens curtos para economizar tokens; o backend já faz deduplicação determinística 100% em triarQuestoes)
     let sqlBanco = 'SELECT id, assunto, enunciado FROM banco_questoes WHERE 1=1';
@@ -822,15 +827,27 @@ app.get('/api/provas/contexto', (req, res) => {
     let baseLegal = '';
     let trechosLegais = [];
     const basePorTopico = {};
+    const trechosPorTopico = {}; // { 'Disciplina::Tópico': { fonte, referencia, texto } } (simulado geral)
+    let trechos = []; // lista de dispositivos para ancorar uma questão cada (tema digitado)
 
     if (assunto && assunto.trim()) {
-      const topLei = buscarBaseConhecimento({
+      const maisTrechos = buscarBaseConhecimento({
         disciplinas: listaDisciplinas,
         topicos: topicosRelacionados,
         query: assunto,
-        limite: 2,
+        limite: 6,
         minScore: 0.10
       });
+      trechos = maisTrechos.map((t) => ({ fonte: t.q.fonte, referencia: t.q.referencia, texto: String(t.q.texto), disciplina: t.q.disciplina, topico: t.q.topico }));
+      // Tema amplo (só o nome do tópico/lei, sem artigo): a busca devolve artigos curtos e genéricos. Sorteia dispositivos
+      // substanciais do tópico para cada geração cobrir partes diferentes da lei.
+      const temaAmplo = !/d/.test(assunto) && assunto.trim().split(/s+/).length <= 4;
+      if (temaAmplo && topicosRelacionados.length > 0) {
+        const marcas = topicosRelacionados.map(() => '?').join(',');
+        const amplos = db.prepare(`SELECT fonte, referencia, texto, disciplina, topico FROM base_conhecimento WHERE topico IN (${marcas}) AND LENGTH(texto) >= 250`).all(...topicosRelacionados);
+        if (amplos.length >= 6) trechos = embaralhar(amplos).slice(0, 6).map((t) => ({ fonte: t.fonte, referencia: t.referencia, texto: String(t.texto), disciplina: t.disciplina, topico: t.topico }));
+      }
+      const topLei = maisTrechos.slice(0, 2);
       trechosLegais = topLei.map((t) => ({ fonte: t.q.fonte, referencia: t.q.referencia, disciplina: t.q.disciplina, topico: t.q.topico }));
       baseLegal = topLei
         .map((t) => `[${t.q.fonte} — ${t.q.referencia}]\n${String(t.q.texto)}`)
@@ -840,7 +857,7 @@ app.get('/api/provas/contexto', (req, res) => {
       const blocosFallback = [];
       for (const d of discsAlvo) {
         const sugeridos = topicosSugeridos[d] || [];
-        for (const top of sugeridos.slice(0, 4)) {
+        for (const top of sugeridos) {
           const rowsTop = db.prepare(
             'SELECT fonte, referencia, texto, disciplina, topico FROM base_conhecimento WHERE disciplina = ? AND topico = ?'
           ).all(d, top);
@@ -848,6 +865,7 @@ app.get('/api/provas/contexto', (req, res) => {
             const sorteado = rowsTop[Math.floor(Math.random() * rowsTop.length)];
             const formatado = `[${sorteado.fonte} — ${sorteado.referencia}]\n${sorteado.texto}`;
             basePorTopico[`${d}::${top}`] = formatado;
+            trechosPorTopico[`${d}::${top}`] = { fonte: sorteado.fonte, referencia: sorteado.referencia, texto: String(sorteado.texto), disciplina: d, topico: top };
             if (blocosFallback.length < 3) {
               blocosFallback.push(formatado);
               trechosLegais.push({ fonte: sorteado.fonte, referencia: sorteado.referencia, disciplina: d, topico: top });
@@ -859,7 +877,7 @@ app.get('/api/provas/contexto', (req, res) => {
     }
 
     if (candidateQuestions.length === 0) {
-      return res.json({ snippets: '', itens: [], evitarRepeticao, baseLegal, basePorTopico, trechosLegais, topicosSugeridos, topScores: [] });
+      return res.json({ snippets: '', itens: [], evitarRepeticao, baseLegal, basePorTopico, trechos, trechosPorTopico, trechosLegais, topicosSugeridos, topScores: [] });
     }
 
     const maxItems = Math.max(2, Math.min(6, Number(limite) || 4));
@@ -887,6 +905,8 @@ Gabarito: ${q.gabarito_oficial || 'N/D'}`;
       evitarRepeticao,
       baseLegal,
       basePorTopico,
+      trechos,
+      trechosPorTopico,
       trechosLegais,
       topicosSugeridos,
       topScores: topItems.map(t => ({ questao: t.q.numero, cosseno: t.cosseno }))
@@ -1480,7 +1500,7 @@ app.get('/api/desempenho', (req, res) => {
     const resolvidasPorTopico = db.prepare(`
       SELECT disciplina, topico, COUNT(*) as n FROM questoes_respondidas WHERE topico IS NOT NULL AND topico != '' GROUP BY disciplina, topico
     `).all();
-    const dispBanco = db.prepare('SELECT disciplina, topico, COUNT(*) as n FROM banco_questoes WHERE topico IS NOT NULL GROUP BY disciplina, topico').all();
+    const dispBanco = db.prepare('SELECT disciplina, topico, COUNT(*) as n FROM banco_questoes WHERE topico IS NOT NULL AND COALESCE(suspeita,0)=0 GROUP BY disciplina, topico').all();
     const dispProvas = db.prepare("SELECT disciplina, topico, COUNT(*) as n FROM questoes_provas WHERE topico IS NOT NULL AND disciplina != 'Fora do Edital PMPE' GROUP BY disciplina, topico").all();
     const idx = (rows) => Object.fromEntries(rows.map(r => [`${r.disciplina}|${r.topico}`, r.n]));
     const iRes = idx(resolvidasPorTopico), iBan = idx(dispBanco), iPro = idx(dispProvas);
@@ -1584,11 +1604,24 @@ app.get('/api/banco/stats', (req, res) => {
       LIMIT 30
     `).all();
 
+    // Cobertura por tópico do edital: quanto há de prova oficial, de inédita e de inédita confiável
+    const cobertura = [];
+    const ined = db.prepare("SELECT disciplina, topico, COUNT(*) n, SUM(CASE WHEN verificada = 1 THEN 1 ELSE 0 END) ver FROM banco_questoes WHERE COALESCE(suspeita,0)=0 GROUP BY disciplina, topico").all();
+    const reais = db.prepare(`SELECT qp.disciplina, qp.topico, COUNT(*) n FROM questoes_provas qp JOIN provas p ON p.id = qp.prova_id AND p.ativo = 1 WHERE ${SQL_PROVAS_UTEIS} GROUP BY qp.disciplina, qp.topico`).all();
+    for (const [disciplina, lista] of Object.entries(TOPICOS_EDITAL)) {
+      for (const t of lista) {
+        const i = ined.find((x) => x.disciplina === disciplina && x.topico === t.topico);
+        const r = reais.find((x) => x.disciplina === disciplina && x.topico === t.topico);
+        cobertura.push({ disciplina, topico: t.topico, reais: r?.n || 0, ineditas: i?.n || 0, verificadas: i?.ver || 0 });
+      }
+    }
+
     res.json({
       total: totalStats.total || 0,
       ineditas: totalStats.ineditas || 0,
       disciplinas,
-      assuntos
+      assuntos,
+      cobertura
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1602,7 +1635,7 @@ app.post('/api/banco/contagem', (req, res) => {
     const listaDisciplinas = Array.isArray(disciplinas) ? disciplinas : [disciplinas].filter(Boolean);
 
     // 1. Contagem geral por disciplina
-    let sqlBanco = 'SELECT disciplina, COUNT(*) as total, COUNT(CASE WHEN total_vezes_usada = 0 THEN 1 END) as ineditas FROM banco_questoes WHERE 1=1';
+    let sqlBanco = 'SELECT disciplina, COUNT(*) as total, COUNT(CASE WHEN total_vezes_usada = 0 THEN 1 END) as ineditas FROM banco_questoes WHERE COALESCE(suspeita,0)=0';
     let sqlProvas = "SELECT disciplina, COUNT(*) as total FROM questoes_provas qp WHERE " + SQL_PROVAS_UTEIS;
     const paramsBanco = [];
     const paramsProvas = [];
@@ -1645,7 +1678,7 @@ app.post('/api/banco/contagem', (req, res) => {
     const temaLimpo = normalizeText(tema);
 
     // Carrega questões das matérias selecionadas
-    let sqlFocoLocal = 'SELECT assunto, topico, sub_topico, palavras_chave, enunciado FROM banco_questoes WHERE 1=1';
+    let sqlFocoLocal = 'SELECT assunto, topico, sub_topico, palavras_chave, enunciado FROM banco_questoes WHERE COALESCE(suspeita,0)=0';
     let sqlFocoProvas = "SELECT enunciado, alternativas_json, topico, disciplina FROM questoes_provas qp WHERE " + SQL_PROVAS_UTEIS;
     const paramsCand = [];
     if (listaDisciplinas.length > 0) {
@@ -1760,6 +1793,21 @@ app.post('/api/banco/triagem', (req, res) => {
   }
 });
 
+// Marca uma questão inédita: 'suspeita' (gabarito duvidoso, sai dos sorteios), 'revisada' (você confirmou) ou 'limpar'
+app.post('/api/banco/:id/marcar', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const acao = String(req.body?.acao || '');
+    if (!Number.isInteger(id) || !['suspeita', 'revisada', 'limpar'].includes(acao)) return res.status(400).json({ error: 'Ação inválida.' });
+    const sets = { suspeita: 'suspeita = 1, revisada = 0', revisada: 'revisada = 1, suspeita = 0', limpar: 'suspeita = 0, revisada = 0' };
+    const r = db.prepare(`UPDATE banco_questoes SET ${sets[acao]} WHERE id = ?`).run(id);
+    if (r.changes === 0) return res.status(404).json({ error: 'Questão não encontrada no banco.' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Salvar lote gerado por IA: só entra no banco o que passa na triagem. Inválidas vão para quarentena; duplicatas são descartadas.
 app.post('/api/banco/salvar', (req, res) => {
   try {
@@ -1773,8 +1821,8 @@ app.post('/api/banco/salvar', (req, res) => {
       INSERT OR IGNORE INTO banco_questoes (
         hash_enunciado, disciplina, assunto, topico, sub_topico, banca, tipo, fonte_legal, dificuldade,
         enunciado, texto_base, alternativas_json, gabarito, dica, explicacao_json,
-        palavras_chave, verificada, total_vezes_usada, ultima_data_resolucao, data_criacao
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+        palavras_chave, verificada, ref_conferida, total_vezes_usada, ultima_data_resolucao, data_criacao
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `);
     const quarentenaStmt = db.prepare(`
       INSERT INTO quarentena_questoes (motivo, disciplina, enunciado, payload_json, data_criacao) VALUES (?, ?, ?, ?, ?)
@@ -1827,6 +1875,7 @@ app.post('/api/banco/salvar', (req, res) => {
           JSON.stringify(normExp),
           q.palavras_chave || `${disciplina} ${q.assunto || ''} ${topico}`,
           q.verificacao === 'OK' ? 1 : 0,
+          q.refConferida ? 1 : 0,
           agora,
           agora
         );
@@ -1879,7 +1928,7 @@ app.post('/api/banco/buscar', (req, res) => {
     const qtd = Math.max(1, Math.min(60, Number(quantidade) || 10));
     const listaDisc = Array.isArray(disciplinas) ? disciplinas : [];
 
-    let sql = 'SELECT * FROM banco_questoes WHERE 1=1';
+    let sql = 'SELECT * FROM banco_questoes WHERE COALESCE(suspeita, 0) = 0';
     const params = [];
     let sqlProvas = `
       SELECT qp.id, qp.prova_id, qp.numero, qp.disciplina, qp.assunto, qp.topico, qp.enunciado, qp.alternativas_json,
@@ -2020,6 +2069,9 @@ app.post('/api/banco/buscar', (req, res) => {
         origem: origemNorm,
         fonte: q.provaRef ? q.fonte : (origemNorm === 'REAL' ? 'Prova Oficial Instituto AOCP' : 'Acervo Local • Padrão AOCP'),
         fonteLegal: q.fonte_legal || null,
+        verificada: q.provaRef ? 1 : (q.verificada || 0),
+        refConferida: q.ref_conferida || 0,
+        revisada: q.revisada || 0,
         dificuldade: q.provaRef ? q.dificuldade : dificuldadeEmpirica(q.total_acertos, q.total_erros, q.dificuldade),
         enunciado: q.enunciado,
         textoBase: q.texto_base || '',

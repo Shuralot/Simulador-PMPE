@@ -154,6 +154,8 @@ export default function App() {
             snippetsProvas: ctx.snippets || '',
             baseLegal: ctx.baseLegal || '',
             basePorTopico: ctx.basePorTopico || {},
+            trechos: ctx.trechos || [],
+            trechosPorTopico: ctx.trechosPorTopico || {},
             evitarRepeticao: ctx.evitarRepeticao || '',
             topicosSugeridos: ctx.topicosSugeridos || {},
             preferences
@@ -171,7 +173,7 @@ export default function App() {
           }
 
           if (descartadas.length > 0) {
-            avisos.push(`${descartadas.length} questão(ões) gerada(s) foram descartadas na checagem de qualidade (estrutura, duplicidade ou gabarito divergente).`);
+            avisos.push(`${descartadas.length} questão(ões) gerada(s) foram descartadas na checagem de qualidade (estrutura, fora do tema, artigo de lei não conferido, duplicidade ou gabarito divergente).`);
           }
           if (geradas.length < faltamIneditas) {
             avisos.push(`Só ${geradas.length} de ${faltamIneditas} inéditas passaram na validação.`);

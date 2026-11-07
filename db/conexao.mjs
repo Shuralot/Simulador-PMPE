@@ -203,6 +203,9 @@ export function abrirBanco(raiz) {
   ensureColumn('questoes_respondidas', 'topico', 'TEXT');
   ensureColumn('banco_questoes', 'topico', 'TEXT');
   ensureColumn('banco_questoes', 'verificada', 'INTEGER DEFAULT 0');
+  ensureColumn('banco_questoes', 'ref_conferida', 'INTEGER DEFAULT 0');
+  ensureColumn('banco_questoes', 'revisada', 'INTEGER DEFAULT 0');
+  ensureColumn('banco_questoes', 'suspeita', 'INTEGER DEFAULT 0');
   ensureColumn('caderno_erros', 'topico', 'TEXT');
   ensureColumn('caderno_erros', 'hash_enunciado', 'TEXT');
   ensureColumn('questoes_respondidas', 'marcou_duvida', 'INTEGER DEFAULT 0');

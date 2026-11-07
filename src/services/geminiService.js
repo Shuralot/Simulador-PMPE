@@ -1,5 +1,6 @@
 // Serviço de integração com a API do Google Gemini (Geração 3.x)
-import { validarQuestao } from '../../lib/validacaoQuestao.mjs';
+import { validarQuestao, conferirFonteLegal } from '../../lib/validacaoQuestao.mjs';
+import { classificarTopico } from '../../lib/taxonomia.mjs';
 import { triagemQuestoes } from './api';
 
 const STORAGE_KEY_API = 'gemini_api_key';
@@ -210,6 +211,21 @@ const FORMATOS_COGNITIVOS_AOCP = [
   }
 ];
 
+// Tópico canônico do edital que o tema digitado representa (null quando é texto livre sem correspondência clara)
+export function topicoDoTema(disciplina, assunto) {
+  if (!assunto || !assunto.trim()) return null;
+  if (disciplina === 'Língua Portuguesa') return null; // o padrão de LP é genérico demais para servir de trava
+  const t = classificarTopico(disciplina, assunto, '');
+  return t && t !== 'Outros' ? t : null;
+}
+
+// Trava de escopo: com tema definido, a questão gerada precisa cair no mesmo tópico do edital (não pode virar outra lei da mesma disciplina)
+export function foraDoTema(q, assunto) {
+  const alvo = topicoDoTema(q.disciplina, assunto);
+  if (!alvo) return false;
+  return classificarTopico(q.disciplina, q.assunto || '', q.enunciado || '') !== alvo;
+}
+
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function ehTemporario(status, msg) {
@@ -307,6 +323,7 @@ const RESPONSE_SCHEMA = {
       tipoCognitivo: { type: 'STRING' },
       fonte: { type: 'STRING' },
       fonteLegal: { type: 'STRING' },
+      trechoId: { type: 'STRING' },
       textoBase: { type: 'STRING' },
       enunciado: { type: 'STRING' },
       dica: { type: 'STRING' },
@@ -347,6 +364,8 @@ async function generateBatchWithGemini({
   snippetsProvas = '',
   baseLegal = '',
   basePorTopico = {},
+  trechos = [],
+  trechosPorTopico = {},
   evitarRepeticao = '',
   topicosSugeridos = {},
   preferences = {}
@@ -356,6 +375,8 @@ async function generateBatchWithGemini({
   const letrasGabarito = ['A', 'B', 'C', 'D', 'E'];
 
   const blueprintLinhas = [];
+  const trechosDoLote = []; // dispositivos de lei enviados neste lote, cada um com id T1, T2...
+  const trechoPorQuestao = [];
   const blocosPorTopicoDoLote = [];
   const chavesTopicoUsadas = new Set();
 
@@ -374,8 +395,27 @@ async function generateBatchWithGemini({
         blocosPorTopicoDoLote.push(basePorTopico[chave]);
       }
     }
+    // Cada questão ganha o SEU dispositivo de lei (antes todas dividiam os mesmos 2 trechos e a IA completava de memória)
+    let trecho = null;
+    if (assunto) {
+      const doDisc = trechos.filter((t) => t.disciplina === discAlvo);
+      const pool = doDisc.length > 0 ? doDisc : trechos;
+      if (pool.length > 0) trecho = pool[(startIndex + i) % pool.length];
+    } else if (topicoAlvo) {
+      trecho = trechosPorTopico[`${discAlvo}::${topicoAlvo}`] || null;
+    }
+    let trechoDoLote = null;
+    if (trecho) {
+      trechoDoLote = trechosDoLote.find((t) => t.fonte === trecho.fonte && t.referencia === trecho.referencia);
+      if (!trechoDoLote) {
+        trechoDoLote = { ...trecho, id: `T${trechosDoLote.length + 1}` };
+        trechosDoLote.push(trechoDoLote);
+      }
+    }
+    trechoPorQuestao.push(trechoDoLote);
+    const topicoDoAssunto = assunto ? topicoDoTema(discAlvo, assunto) : null;
     blueprintLinhas.push(
-      `- Questão ${numGlobal}: Disciplina="${discAlvo}"${topicoAlvo ? ` | Tópico obrigatório="${topicoAlvo}"` : ''} | Origem="INÉDITA" | TipoCognitivo="${formato.tipo}" | Gabarito Alvo="${letraSugerida}" | Formato obrigatório: ${formato.instrucao}`
+      `- Questão ${numGlobal}: Disciplina="${discAlvo}"${topicoAlvo ? ` | Tópico obrigatório="${topicoAlvo}"` : ''}${assunto ? ` | Tema obrigatório="${assunto}"${topicoDoAssunto ? ` (${topicoDoAssunto})` : ''}` : ''}${trechoDoLote ? ` | Trecho de apoio="${trechoDoLote.id}"` : ''} | Origem="INÉDITA" | TipoCognitivo="${formato.tipo}" | Gabarito Alvo="${letraSugerida}" | Formato obrigatório: ${formato.instrucao}`
     );
   }
 
@@ -384,6 +424,10 @@ async function generateBatchWithGemini({
     ? baseLegal.slice(0, 2200)
     : (blocosPorTopicoDoLote.length > 0 ? blocosPorTopicoDoLote.join('\n\n').slice(0, 2200) : baseLegal.slice(0, 1800));
 
+  const blocoTrechos = trechosDoLote.length > 0
+    ? trechosDoLote.map((t) => `[${t.id}] ${t.fonte} — ${t.referencia}
+${t.texto}`).join('\n\n')
+    : '';
   const exemplos = montarExemplosReais(itensProvas, snippetsProvas);
 
   const systemInstruction = `Você é um elaborador de questões sênior do INSTITUTO AOCP, especialista EXCLUSIVO no concurso de SOLDADO (Praça QPMG) da Polícia Militar de Pernambuco (PMPE — Edital 2026).
@@ -396,15 +440,20 @@ REGRAS PSICOMÉTRICAS INEGOCIÁVEIS:
 4. No objeto "explicacao.distratores", explique o erro APENAS das 4 alternativas incorretas (NÃO inclua a letra do gabarito dentro de distratores).
 5. Nível de dificuldade do lote: ${dif === 'dificil' ? 'Difícil (pegadinhas sutis de prazos, exceções e quóruns)' : dif === 'media' ? 'Médio (padrão oficial Soldado PMPE)' : 'Equilibrado (Fácil, Média e Difícil)'}.
 6. Todas as questões são INÉDITAS: nunca copie ou reconstrua uma questão das provas de referência; use-as apenas como modelo de estilo e nível de dificuldade.
-7. Para conteúdo normativo ou técnico-histórico, ancore-se nos "TRECHOS DE REFERÊNCIA OFICIAL / LEGISLAÇÃO" fornecidos. Preencha "fonteLegal" com a referência exata usada (ex.: "CF/88, Art. 5º, XI", "Lei nº 13.869/2019, Art. 13", "Lei Estadual PE nº 6.783/1974, Art. 27"). Nas demais matérias sem lei, deixe "fonteLegal" vazio.
-8. Resolva a questão no campo "explicacao.correta" antes de definir o "gabarito"; o gabarito DEVE ser a letra da alternativa que você justificou.`;
+7. Para conteúdo normativo ou técnico-histórico, ancore-se nos "TRECHOS DE REFERÊNCIA OFICIAL / LEGISLAÇÃO" fornecidos. Quando a questão tiver "Trecho de apoio", copie o id dele em "trechoId" e preencha "fonteLegal" com a lei e o número do artigo DESSE trecho (ex.: "CF/88, Art. 5º, XI", "Lei nº 13.869/2019, Art. 13"); é proibido citar artigo que não esteja no trecho. Nas matérias sem trecho de apoio (Português, Raciocínio, Informática), deixe "fonteLegal" e "trechoId" vazios.
+8. ESCOPO: quando houver "Tema obrigatório", TODAS as questões devem tratar exclusivamente desse tema e da sua lei/matéria. É PROIBIDO gerar questão de outra lei ou assunto da mesma disciplina (ex.: com tema ECA, nada de Lei de Drogas, Maria da Penha, Abuso de Autoridade, Estatuto do Idoso etc.). O campo "assunto" da questão deve repetir o tema e as alternativas não podem citar outras leis. As questões reais de referência servem só de estilo, nunca de assunto.
+9. Resolva a questão no campo "explicacao.correta" antes de definir o "gabarito"; o gabarito DEVE ser a letra da alternativa que você justificou.`;
 
   const userPrompt = `Gere exatamente ${quantidade} questões sobre o foco temático: "${assunto || 'Tópicos oficiais do Edital Soldado PMPE 2026'}".
 
 BLUEPRINT OBRIGATÓRIO ITEM A ITEM:
 ${blueprintLinhas.join('\n')}
 
-${baseLegalDoLote ? `TRECHOS DE REFERÊNCIA OFICIAL / LEGISLAÇÃO APLICÁVEL (Baseie-se estritamente nestes dispositivos para formular as alternativas e o gabarito das respectivas matérias):\n${baseLegalDoLote}\n` : ''}
+${blocoTrechos ? `TRECHOS DE APOIO (cada questão do blueprint indica o seu "Trecho de apoio". Formule enunciado, alternativas e gabarito a partir do texto desse trecho, sem acrescentar regra que não esteja nele):
+${blocoTrechos}
+` : (baseLegalDoLote ? `TRECHOS DE REFERENCIA OFICIAL / LEGISLACAO APLICAVEL (baseie-se estritamente nestes dispositivos):
+${baseLegalDoLote}
+` : '')}
 ${evitarRepeticao ? `MEMÓRIA ANTI-REPETIÇÃO (NÃO repita estes enunciados/cenários):\n${evitarRepeticao}\n` : ''}
 ${exemplos ? `QUESTÕES REAIS DE REFERÊNCIA (apenas para calibrar estilo AOCP — NÃO copiar):\n${exemplos}\n` : ''}
 
@@ -433,8 +482,8 @@ Retorne APENAS um array JSON válido contendo exatamente ${quantidade} objetos n
     if (quantidade > 1) {
       console.warn(`[Gemini] JSON inválido${cortada ? ' (truncado)' : ''}; dividindo o lote de ${quantidade}.`);
       const metade = Math.ceil(quantidade / 2);
-      const a = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: metade, startIndex, itensProvas, snippetsProvas, baseLegal, basePorTopico, evitarRepeticao, topicosSugeridos, preferences });
-      const b = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: quantidade - metade, startIndex: startIndex + metade, itensProvas, snippetsProvas, baseLegal, basePorTopico, evitarRepeticao, topicosSugeridos, preferences });
+      const a = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: metade, startIndex, itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences });
+      const b = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: quantidade - metade, startIndex: startIndex + metade, itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences });
       return [...a, ...b];
     }
     throw new Error(`A IA devolveu uma resposta ilegível: ${err.message}`);
@@ -442,20 +491,32 @@ Retorne APENAS um array JSON válido contendo exatamente ${quantidade} objetos n
 
   return arr.map((q, idx) => {
     const n = normalizeQuestion(q, startIndex + idx);
-    return { ...n, origem: 'INÉDITA', tipo: 'INÉDITA', fonte: 'Inédita • Padrão AOCP', _contextoVerificacao: baseLegalDoLote };
+    const porId = trechosDoLote.find((t) => t.id === String(q.trechoId || '').trim().toUpperCase());
+    const trecho = porId || trechoPorQuestao[idx] || null;
+    return { ...n, origem: 'INÉDITA', tipo: 'INÉDITA', fonte: 'Inédita • Padrão AOCP', _trecho: trecho, _contextoVerificacao: trecho ? '' : baseLegalDoLote };
   });
 }
 
-// Segunda passada: o modelo resolve cada questão SEM ver o gabarito nem a explicação, mas COM acesso à letra da lei oficial usada
-// (impede falso descarte de questões corretas sobre leis estaduais de PE ou alterações legislativas recentes).
+// Segunda passada: um modelo DIFERENTE do gerador resolve cada questão SEM ver o gabarito nem a explicação.
+// Cada questão chega com o próprio dispositivo de lei (antes o lote inteiro dividia um único contexto) e o modelo
+// escreve a resolução passo a passo antes de dar a letra (reduz erro de conta e de pegadinha).
 export async function verificarQuestoesComIA({ apiKey, modelsToTry, questoes, baseLegal = '' }) {
   if (!questoes.length) return questoes;
-  const contextoRef = (baseLegal || questoes.map(q => q._contextoVerificacao || '').find(Boolean) || '').slice(0, 2200);
-  const prompt = `Resolva cada questão de concurso abaixo (Soldado PMPE — Banca AOCP) de forma independente e rigorosa. Responda apenas com a letra da alternativa correta.
-${contextoRef ? `\nTEXTO OFICIAL DE REFERÊNCIA / LEGISLAÇÃO VIGENTE (Consulte obrigatoriamente caso a questão trate destes dispositivos):\n${contextoRef}\n` : ''}
-${questoes.map((q, i) => `### QUESTÃO ${i + 1}${q.fonteLegal ? ` [Ref: ${q.fonteLegal}]` : ''}\n${q.textoBase ? `Texto-base: ${q.textoBase}\n` : ''}${q.enunciado}\n${q.alternativas.map(a => `(${a.letra}) ${a.texto}`).join('\n')}`).join('\n\n')}
+  const algumTrecho = questoes.some((q) => q._trecho);
+  const contextoGeral = algumTrecho ? '' : (baseLegal || questoes.map((q) => q._contextoVerificacao || '').find(Boolean) || '').slice(0, 2200);
+  const prompt = `Resolva cada questão de concurso abaixo (Soldado PMPE — Banca AOCP) de forma independente e rigorosa. Para cada uma, escreva em "resolucao" o raciocínio em até 4 frases curtas (em contas e lógica, mostre os passos) e só depois dê a letra em "resposta". Quando houver TRECHO OFICIAL da questão, ele prevalece sobre o que você lembra.
+${contextoGeral ? `
+TEXTO OFICIAL DE REFERÊNCIA / LEGISLAÇÃO VIGENTE:
+${contextoGeral}
+` : ''}
+${questoes.map((q, i) => `### QUESTÃO ${i + 1}${q.fonteLegal ? ` [Ref: ${q.fonteLegal}]` : ''}
+${q._trecho ? `TRECHO OFICIAL (${q._trecho.fonte} — ${q._trecho.referencia}):
+${String(q._trecho.texto).slice(0, 1400)}
+` : ''}${q.textoBase ? `Texto-base: ${q.textoBase}
+` : ''}${q.enunciado}
+${q.alternativas.map((a) => `(${a.letra}) ${a.texto}`).join('\n')}`).join('\n\n')}
 
-Retorne APENAS um array JSON no formato [{"numero": 1, "resposta": "A", "confianca": "alta|media|baixa"}] com ${questoes.length} itens.`;
+Retorne APENAS um array JSON no formato [{"numero": 1, "resolucao": "...", "resposta": "A", "confianca": "alta|media|baixa"}] com ${questoes.length} itens.`;
 
   try {
     const { text } = await chamarGemini({
@@ -466,21 +527,21 @@ Retorne APENAS um array JSON no formato [{"numero": 1, "resposta": "A", "confian
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0,
-          maxOutputTokens: 4096,
+          maxOutputTokens: 8192,
           responseMimeType: 'application/json',
           responseSchema: {
             type: 'ARRAY',
             items: {
               type: 'OBJECT',
-              required: ['numero', 'resposta'],
-              properties: { numero: { type: 'INTEGER' }, resposta: { type: 'STRING' }, confianca: { type: 'STRING' } }
+              required: ['numero', 'resolucao', 'resposta'],
+              properties: { numero: { type: 'INTEGER' }, resolucao: { type: 'STRING' }, resposta: { type: 'STRING' }, confianca: { type: 'STRING' } }
             }
           }
         }
       }
     });
     const respostas = parseJsonSeguro(text);
-    const mapa = new Map(respostas.map(r => [Number(r.numero), String(r.resposta || '').trim().toUpperCase()]));
+    const mapa = new Map(respostas.map((r) => [Number(r.numero), String(r.resposta || '').trim().toUpperCase()]));
     return questoes.map((q, i) => {
       const resp = mapa.get(i + 1);
       if (!resp) return { ...q, verificacao: 'NAO_VERIFICADA' };
@@ -488,8 +549,15 @@ Retorne APENAS um array JSON no formato [{"numero": 1, "resposta": "A", "confian
     });
   } catch (err) {
     console.warn('[Gemini] Verificação independente falhou; questões seguem sem verificação:', err.message);
-    return questoes.map(q => ({ ...q, verificacao: 'NAO_VERIFICADA' }));
+    return questoes.map((q) => ({ ...q, verificacao: 'NAO_VERIFICADA' }));
   }
+}
+
+// Cadeia do verificador: começa pelo modelo mais forte que NÃO seja o gerador (erro sistemático de um modelo passa batido por ele mesmo)
+export function modelosVerificador(modeloGerador) {
+  const preferidos = ['gemini-3.1-pro-preview', ...OFFICIAL_3X_MODELS];
+  const outros = [...new Set(preferidos)].filter((m) => m !== modeloGerador);
+  return [...outros, modeloGerador];
 }
 
 // Gera questões inéditas com pipeline completo: geração -> validação -> triagem (duplicatas) -> verificação independente.
@@ -505,6 +573,8 @@ export async function generateQuestionsWithGemini({
   snippetsProvas = '',
   baseLegal = '',
   basePorTopico = {},
+  trechos = [],
+  trechosPorTopico = {},
   evitarRepeticao = '',
   topicosSugeridos = {},
   preferences = {}
@@ -540,7 +610,7 @@ export async function generateQuestionsWithGemini({
         const tam = Math.min(MAX_BATCH, restante);
         const lote = await generateBatchWithGemini({
           apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: tam, startIndex: inicio,
-          itensProvas, snippetsProvas, baseLegal, basePorTopico, evitarRepeticao, topicosSugeridos, preferences
+          itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences
         });
         brutas.push(...lote);
         inicio += tam;
@@ -556,8 +626,14 @@ export async function generateQuestionsWithGemini({
     const validas = [];
     for (const q of brutas) {
       const v = validarQuestao(q);
-      if (v.ok) validas.push(q);
-      else descartadas.push({ questao: q, motivo: v.erros.join(' '), tipo: 'INVALIDA' });
+      if (!v.ok) descartadas.push({ questao: q, motivo: v.erros.join(' '), tipo: 'INVALIDA' });
+      else if (foraDoTema(q, assunto)) descartadas.push({ questao: q, motivo: `Fora do tema pedido ("${assunto}"): a IA tratou de outro assunto.`, tipo: 'FORA_DO_TEMA' });
+      else {
+        // a fonte legal citada precisa ser o dispositivo que foi entregue à questão
+        const f = conferirFonteLegal(q, q._trecho);
+        if (!f.ok) descartadas.push({ questao: q, motivo: f.motivo, tipo: 'FONTE_INVALIDA' });
+        else validas.push({ ...q, refConferida: f.conferida });
+      }
     }
 
     // 2) triagem no servidor: duplicatas contra o banco, as provas reais e o próprio lote
@@ -575,9 +651,9 @@ export async function generateQuestionsWithGemini({
     }
 
     // 3) verificação independente (resolve sem gabarito, mas com acesso à base normativa oficial)
-    const verificadas = await verificarQuestoesComIA({ apiKey, modelsToTry, questoes: triadas, baseLegal });
+    const verificadas = await verificarQuestoesComIA({ apiKey, modelsToTry: modelosVerificador(model || DEFAULT_MODEL), questoes: triadas, baseLegal });
     for (const q of verificadas) {
-      const { _contextoVerificacao, ...qLimpa } = q;
+      const { _contextoVerificacao, _trecho, ...qLimpa } = q;
       if (qLimpa.verificacao === 'DIVERGENTE') {
         descartadas.push({ questao: qLimpa, motivo: `Gabarito (${qLimpa.gabarito}) divergiu da resolução independente (${qLimpa.respostaVerificacao}).`, tipo: 'DIVERGENTE' });
       } else {

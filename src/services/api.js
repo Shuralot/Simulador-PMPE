@@ -159,6 +159,17 @@ export async function salvarNoBanco(questoes) {
   return await res.json();
 }
 
+// Marca uma questão inédita do banco: 'suspeita' (sai dos sorteios), 'revisada' (você confirmou) ou 'limpar'
+export async function marcarQuestaoBanco(id, acao) {
+  const res = await fetch(`${API_BASE}/banco/${id}/marcar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ acao })
+  });
+  if (!res.ok) throw new Error('Falha ao marcar a questão.');
+  return await res.json();
+}
+
 export async function buscarNoBanco({ disciplinas, tema, quantidade = 10, apenasIneditas = false, somenteReais = false, somenteIneditas = false }) {
   const res = await fetch(`${API_BASE}/banco/buscar`, {
     method: 'POST',

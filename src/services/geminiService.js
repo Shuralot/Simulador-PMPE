@@ -2,21 +2,33 @@
 import { validarQuestao, conferirFonteLegal } from '../../lib/validacaoQuestao.mjs';
 import { classificarTopico } from '../../lib/taxonomia.mjs';
 import { triagemQuestoes } from './api';
+import { DEFAULT_MODEL, OFFICIAL_3X_MODELS, chamarGemini, parseJsonSeguro, verificarQuestoesComIA, modelosVerificador } from '../../lib/gemini.mjs';
+
+export { DEFAULT_MODEL, OFFICIAL_3X_MODELS, verificarQuestoesComIA, modelosVerificador };
 
 const STORAGE_KEY_API = 'gemini_api_key';
 const STORAGE_KEY_MODEL = 'gemini_model_choice';
+const STORAGE_KEY_LOGS = 'pmpe_ia_logs';
 
-export const DEFAULT_MODEL = 'gemini-3.8-flash';
+export function getAiLogs() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_LOGS);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
 
-// Família oficial de modelos 3.x suportados
-export const OFFICIAL_3X_MODELS = [
-  'gemini-3.8-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-3-flash-preview',
-  'gemini-3.1-pro-preview'
-];
+export function appendAiLog(entry) {
+  try {
+    const atual = getAiLogs();
+    const proximo = [{ ts: new Date().toISOString(), ...entry }, ...atual].slice(0, 60);
+    localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(proximo));
+  } catch { /* quota */ }
+}
+
+export function clearAiLogs() {
+  try { localStorage.removeItem(STORAGE_KEY_LOGS); } catch { /* noop */ }
+}
+
 
 export function getApiKey() {
   return localStorage.getItem(STORAGE_KEY_API) || '';
@@ -214,9 +226,11 @@ const FORMATOS_COGNITIVOS_AOCP = [
 // Tópico canônico do edital que o tema digitado representa (null quando é texto livre sem correspondência clara)
 export function topicoDoTema(disciplina, assunto) {
   if (!assunto || !assunto.trim()) return null;
-  if (disciplina === 'Língua Portuguesa') return null; // o padrão de LP é genérico demais para servir de trava
   const t = classificarTopico(disciplina, assunto, '');
-  return t && t !== 'Outros' ? t : null;
+  if (!t || t === 'Outros') return null;
+  // Interpretação de Texto é genérico demais em LP para servir de trava; tópicos gramaticais específicos devem travar
+  if (disciplina === 'Língua Portuguesa' && t === 'Interpretação de Texto') return null;
+  return t;
 }
 
 // Trava de escopo: com tema definido, a questão gerada precisa cair no mesmo tópico do edital (não pode virar outra lei da mesma disciplina)
@@ -224,66 +238,6 @@ export function foraDoTema(q, assunto) {
   const alvo = topicoDoTema(q.disciplina, assunto);
   if (!alvo) return false;
   return classificarTopico(q.disciplina, q.assunto || '', q.enunciado || '') !== alvo;
-}
-
-const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function ehTemporario(status, msg) {
-  const m = String(msg || '').toLowerCase();
-  return status === 503 || status === 429 || status === 500 || status === 404 || m.includes('high demand') || m.includes('overloaded');
-}
-
-// Chamada ao Gemini com retry/backoff por modelo e queda para o próximo modelo da cadeia.
-// Devolve { text, finishReason, model } e registra no console cada falha para não engolir erros em silêncio.
-async function chamarGemini({ apiKey, modelsToTry, body, tentativasPorModelo = 2 }) {
-  let lastError = null;
-  for (const model of modelsToTry) {
-    for (let tentativa = 1; tentativa <= tentativasPorModelo; tentativa++) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          const msg = errorData.error?.message || `Erro da API Gemini (${response.status})`;
-          if (ehTemporario(response.status, msg)) {
-            console.warn(`[Gemini] ${model} indisponível (${response.status}) tentativa ${tentativa}: ${msg}`);
-            lastError = new Error(msg);
-            if (response.status === 404) break; // modelo inexistente: vai direto para o próximo
-            if (tentativa < tentativasPorModelo) await esperar(1000 * tentativa * tentativa);
-            continue;
-          }
-          throw new Error(msg);
-        }
-
-        const result = await response.json();
-        const cand = result.candidates?.[0];
-        const text = cand?.content?.parts?.map((p) => p.text || '').join('') || '';
-        if (!text) {
-          lastError = new Error(`A IA (${model}) não retornou conteúdo${cand?.finishReason ? ` [${cand.finishReason}]` : ''}.`);
-          console.warn('[Gemini]', lastError.message);
-          continue;
-        }
-        return { text, finishReason: cand?.finishReason || 'STOP', model };
-      } catch (err) {
-        // Erros não temporários (chave inválida, requisição malformada) não adiantam tentar de novo
-        if (!(err instanceof TypeError)) throw err;
-        console.warn(`[Gemini] Falha de rede em ${model}:`, err.message);
-        lastError = err;
-        if (tentativa < tentativasPorModelo) await esperar(1000 * tentativa);
-      }
-    }
-  }
-  throw lastError || new Error('Falha ao comunicar com a API Gemini.');
-}
-
-function parseJsonSeguro(rawText) {
-  const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-  return JSON.parse(cleaned);
 }
 
 // Monta o bloco de exemplos reais enxuto sem cortar item no meio (2 a 3 itens calibram o estilo AOCP sem desperdiçar tokens)
@@ -368,7 +322,8 @@ async function generateBatchWithGemini({
   trechosPorTopico = {},
   evitarRepeticao = '',
   topicosSugeridos = {},
-  preferences = {}
+  preferences = {},
+  onLog = null
 }) {
   const temp = typeof preferences.temperatura === 'number' ? preferences.temperatura : 0.35;
   const dif = preferences.dificuldade || 'mista';
@@ -440,7 +395,7 @@ REGRAS PSICOMÉTRICAS INEGOCIÁVEIS:
 4. No objeto "explicacao.distratores", explique o erro APENAS das 4 alternativas incorretas (NÃO inclua a letra do gabarito dentro de distratores).
 5. Nível de dificuldade do lote: ${dif === 'dificil' ? 'Difícil (pegadinhas sutis de prazos, exceções e quóruns)' : dif === 'media' ? 'Médio (padrão oficial Soldado PMPE)' : 'Equilibrado (Fácil, Média e Difícil)'}.
 6. Todas as questões são INÉDITAS: nunca copie ou reconstrua uma questão das provas de referência; use-as apenas como modelo de estilo e nível de dificuldade.
-7. Para conteúdo normativo ou técnico-histórico, ancore-se nos "TRECHOS DE REFERÊNCIA OFICIAL / LEGISLAÇÃO" fornecidos. Quando a questão tiver "Trecho de apoio", copie o id dele em "trechoId" e preencha "fonteLegal" com a lei e o número do artigo DESSE trecho (ex.: "CF/88, Art. 5º, XI", "Lei nº 13.869/2019, Art. 13"); é proibido citar artigo que não esteja no trecho. Nas matérias sem trecho de apoio (Português, Raciocínio, Informática), deixe "fonteLegal" e "trechoId" vazios.
+7. Para conteúdo normativo ou técnico-histórico, ancore-se nos "TRECHOS DE REFERÊNCIA OFICIAL / LEGISLAÇÃO" fornecidos. Quando a questão tiver "Trecho de apoio", copie o id dele em "trechoId" e preencha "fonteLegal" com a lei e o número do artigo DESSE trecho (ex.: "CF/88, Art. 5º, XI", "Lei nº 13.869/2019, Art. 13"); é proibido citar artigo que não esteja no trecho. Quando o trecho de apoio for de "Apostila" ou "Ficha" (material de estudo, não lei), copie o trechoId e deixe "fonteLegal" vazio. Nunca escreva no enunciado ou nas alternativas expressões como "material de referência", "trecho", "apostila" ou "conforme o texto de apoio": a questão deve se sustentar sozinha, como numa prova real. Sem trecho de apoio, deixe "fonteLegal" e "trechoId" vazios.
 8. ESCOPO: quando houver "Tema obrigatório", TODAS as questões devem tratar exclusivamente desse tema e da sua lei/matéria. É PROIBIDO gerar questão de outra lei ou assunto da mesma disciplina (ex.: com tema ECA, nada de Lei de Drogas, Maria da Penha, Abuso de Autoridade, Estatuto do Idoso etc.). O campo "assunto" da questão deve repetir o tema e as alternativas não podem citar outras leis. As questões reais de referência servem só de estilo, nunca de assunto.
 9. Resolva a questão no campo "explicacao.correta" antes de definir o "gabarito"; o gabarito DEVE ser a letra da alternativa que você justificou.`;
 
@@ -470,7 +425,7 @@ Retorne APENAS um array JSON válido contendo exatamente ${quantidade} objetos n
     }
   };
 
-  const { text, finishReason } = await chamarGemini({ apiKey, modelsToTry, body });
+  const { text, finishReason } = await chamarGemini({ apiKey, modelsToTry, body, onLog, etapa: 'geracao' });
 
   // Resposta cortada por limite de tokens: divide o lote ao meio e tenta de novo, em vez de aceitar JSON truncado
   const cortada = finishReason === 'MAX_TOKENS';
@@ -480,10 +435,10 @@ Retorne APENAS um array JSON válido contendo exatamente ${quantidade} objetos n
     arr = Array.isArray(parsed) ? parsed : (parsed.questoes || [parsed]);
   } catch (err) {
     if (quantidade > 1) {
-      console.warn(`[Gemini] JSON inválido${cortada ? ' (truncado)' : ''}; dividindo o lote de ${quantidade}.`);
+      onLog?.({ etapa: 'geracao', nivel: 'warn', mensagem: `JSON inválido${cortada ? ' (MAX_TOKENS)' : ''}; dividindo lote de ${quantidade} em 2.` });
       const metade = Math.ceil(quantidade / 2);
-      const a = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: metade, startIndex, itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences });
-      const b = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: quantidade - metade, startIndex: startIndex + metade, itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences });
+      const a = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: metade, startIndex, itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences, onLog });
+      const b = await generateBatchWithGemini({ apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: quantidade - metade, startIndex: startIndex + metade, itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences, onLog });
       return [...a, ...b];
     }
     throw new Error(`A IA devolveu uma resposta ilegível: ${err.message}`);
@@ -493,71 +448,8 @@ Retorne APENAS um array JSON válido contendo exatamente ${quantidade} objetos n
     const n = normalizeQuestion(q, startIndex + idx);
     const porId = trechosDoLote.find((t) => t.id === String(q.trechoId || '').trim().toUpperCase());
     const trecho = porId || trechoPorQuestao[idx] || null;
-    return { ...n, origem: 'INÉDITA', tipo: 'INÉDITA', fonte: 'Inédita • Padrão AOCP', _trecho: trecho, _contextoVerificacao: trecho ? '' : baseLegalDoLote };
+    return { ...n, origem: 'INÉDITA', tipo: 'INÉDITA', fonte: 'Inédita • Padrão AOCP', baseChunkId: trecho?.chunkId || null, _trecho: trecho, _contextoVerificacao: trecho ? '' : baseLegalDoLote };
   });
-}
-
-// Segunda passada: um modelo DIFERENTE do gerador resolve cada questão SEM ver o gabarito nem a explicação.
-// Cada questão chega com o próprio dispositivo de lei (antes o lote inteiro dividia um único contexto) e o modelo
-// escreve a resolução passo a passo antes de dar a letra (reduz erro de conta e de pegadinha).
-export async function verificarQuestoesComIA({ apiKey, modelsToTry, questoes, baseLegal = '' }) {
-  if (!questoes.length) return questoes;
-  const algumTrecho = questoes.some((q) => q._trecho);
-  const contextoGeral = algumTrecho ? '' : (baseLegal || questoes.map((q) => q._contextoVerificacao || '').find(Boolean) || '').slice(0, 2200);
-  const prompt = `Resolva cada questão de concurso abaixo (Soldado PMPE — Banca AOCP) de forma independente e rigorosa. Para cada uma, escreva em "resolucao" o raciocínio em até 4 frases curtas (em contas e lógica, mostre os passos) e só depois dê a letra em "resposta". Quando houver TRECHO OFICIAL da questão, ele prevalece sobre o que você lembra.
-${contextoGeral ? `
-TEXTO OFICIAL DE REFERÊNCIA / LEGISLAÇÃO VIGENTE:
-${contextoGeral}
-` : ''}
-${questoes.map((q, i) => `### QUESTÃO ${i + 1}${q.fonteLegal ? ` [Ref: ${q.fonteLegal}]` : ''}
-${q._trecho ? `TRECHO OFICIAL (${q._trecho.fonte} — ${q._trecho.referencia}):
-${String(q._trecho.texto).slice(0, 1400)}
-` : ''}${q.textoBase ? `Texto-base: ${q.textoBase}
-` : ''}${q.enunciado}
-${q.alternativas.map((a) => `(${a.letra}) ${a.texto}`).join('\n')}`).join('\n\n')}
-
-Retorne APENAS um array JSON no formato [{"numero": 1, "resolucao": "...", "resposta": "A", "confianca": "alta|media|baixa"}] com ${questoes.length} itens.`;
-
-  try {
-    const { text } = await chamarGemini({
-      apiKey,
-      modelsToTry,
-      tentativasPorModelo: 1,
-      body: {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 8192,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              required: ['numero', 'resolucao', 'resposta'],
-              properties: { numero: { type: 'INTEGER' }, resolucao: { type: 'STRING' }, resposta: { type: 'STRING' }, confianca: { type: 'STRING' } }
-            }
-          }
-        }
-      }
-    });
-    const respostas = parseJsonSeguro(text);
-    const mapa = new Map(respostas.map((r) => [Number(r.numero), String(r.resposta || '').trim().toUpperCase()]));
-    return questoes.map((q, i) => {
-      const resp = mapa.get(i + 1);
-      if (!resp) return { ...q, verificacao: 'NAO_VERIFICADA' };
-      return { ...q, verificacao: resp === q.gabarito ? 'OK' : 'DIVERGENTE', respostaVerificacao: resp };
-    });
-  } catch (err) {
-    console.warn('[Gemini] Verificação independente falhou; questões seguem sem verificação:', err.message);
-    return questoes.map((q) => ({ ...q, verificacao: 'NAO_VERIFICADA' }));
-  }
-}
-
-// Cadeia do verificador: começa pelo modelo mais forte que NÃO seja o gerador (erro sistemático de um modelo passa batido por ele mesmo)
-export function modelosVerificador(modeloGerador) {
-  const preferidos = ['gemini-3.1-pro-preview', ...OFFICIAL_3X_MODELS];
-  const outros = [...new Set(preferidos)].filter((m) => m !== modeloGerador);
-  return [...outros, modeloGerador];
 }
 
 // Gera questões inéditas com pipeline completo: geração -> validação -> triagem (duplicatas) -> verificação independente.
@@ -577,7 +469,8 @@ export async function generateQuestionsWithGemini({
   trechosPorTopico = {},
   evitarRepeticao = '',
   topicosSugeridos = {},
-  preferences = {}
+  preferences = {},
+  onLog = null
 }) {
   if (!apiKey) {
     throw new Error('Chave de API do Gemini não configurada. Por favor, acerte sua chave na aba Opções.');
@@ -597,8 +490,15 @@ export async function generateQuestionsWithGemini({
   const descartadas = [];
   let ultimoErro = null;
 
+  const log = (entry) => {
+    const e = { ts: new Date().toISOString(), ...entry };
+    appendAiLog(e);
+    try { onLog?.(e); } catch { /* noop */ }
+  };
+
   for (let rodada = 0; rodada < 3 && aprovadas.length < quantidade; rodada++) {
     const faltam = quantidade - aprovadas.length;
+    log({ etapa: 'pipeline', nivel: 'info', mensagem: `Rodada ${rodada + 1}/3: buscando ${faltam} questão(ões) (${activeDisciplinas.join(', ')})` });
     // Pede uma pequena margem nas rodadas seguintes, já esperando perdas na validação
     const pedir = rodada === 0 ? faltam : faltam + 1;
 
@@ -610,7 +510,7 @@ export async function generateQuestionsWithGemini({
         const tam = Math.min(MAX_BATCH, restante);
         const lote = await generateBatchWithGemini({
           apiKey, modelsToTry, activeDisciplinas, assunto, quantidade: tam, startIndex: inicio,
-          itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences
+          itensProvas, snippetsProvas, baseLegal, basePorTopico, trechos, trechosPorTopico, evitarRepeticao, topicosSugeridos, preferences, onLog: log
         });
         brutas.push(...lote);
         inicio += tam;
@@ -651,7 +551,7 @@ export async function generateQuestionsWithGemini({
     }
 
     // 3) verificação independente (resolve sem gabarito, mas com acesso à base normativa oficial)
-    const verificadas = await verificarQuestoesComIA({ apiKey, modelsToTry: modelosVerificador(model || DEFAULT_MODEL), questoes: triadas, baseLegal });
+    const verificadas = await verificarQuestoesComIA({ apiKey, modelsToTry: modelosVerificador(model || DEFAULT_MODEL), questoes: triadas, baseLegal, onLog: log });
     for (const q of verificadas) {
       const { _contextoVerificacao, _trecho, ...qLimpa } = q;
       if (qLimpa.verificacao === 'DIVERGENTE') {
@@ -667,6 +567,7 @@ export async function generateQuestionsWithGemini({
     throw new Error('Nenhuma questão passou na validação de qualidade. Tente novamente ou reduza a quantidade.');
   }
 
+  log({ etapa: 'pipeline', nivel: aprovadas.length < quantidade ? 'warn' : 'info', mensagem: `Finalizado: ${aprovadas.length}/${quantidade} aprovada(s), ${descartadas.length} descartada(s).` });
   const questoes = aprovadas.slice(0, quantidade).map((q, i) => ({ ...q, numero: i + 1 }));
   return { questoes, descartadas };
 }

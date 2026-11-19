@@ -16,7 +16,9 @@ import {
   Highlighter,
   Eraser,
   RotateCcw,
-  Scale
+  Scale,
+  Pause,
+  Play
 } from 'lucide-react';
 import LegalReferencePanel from './LegalReferencePanel';
 import FormattedQuestionText from './FormattedQuestionText';
@@ -37,20 +39,29 @@ export default function QuizRunner({
   onFinishQuiz, 
   onCancelQuiz 
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const sessaoKey = Array.isArray(quizData) && quizData.length > 0 ? `${quizData.length}-${String(quizData[0]?.enunciado || '').slice(0, 40)}` : '';
+  const lerEstadoSalvo = () => {
+    try {
+      const s = JSON.parse(localStorage.getItem('pmpe_runner_estado') || 'null');
+      return s && s.sessaoKey === sessaoKey ? s : null;
+    } catch { return null; }
+  };
+  const estadoInicial = lerEstadoSalvo();
+  const [currentIndex, setCurrentIndex] = useState(estadoInicial?.currentIndex || 0);
+  const [pausado, setPausado] = useState(false);
   
   // Respostas validadas / confirmadas
-  const [userAnswers, setUserAnswers] = useState({}); // { [index]: 'A' | 'B' | ... }
+  const [userAnswers, setUserAnswers] = useState(estadoInicial?.userAnswers || {}); // { [index]: 'A' | 'B' | ... }
   // Resposta selecionada provisoriamente (aguardando o botão Validar)
-  const [pendingAnswers, setPendingAnswers] = useState({}); // { [index]: 'A' | 'B' | ... }
+  const [pendingAnswers, setPendingAnswers] = useState(estadoInicial?.pendingAnswers || {}); // { [index]: 'A' | 'B' | ... }
   
   const [showDica, setShowDica] = useState({});
   const [showLegalRef, setShowLegalRef] = useState({});
-  const [expandedDistractors, setExpandedDistractors] = useState({}); // { [`${currentIndex}-${letra}`]: boolean }
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [questionTimes, setQuestionTimes] = useState({});
-  const [eliminatedAlts, setEliminatedAlts] = useState({});
-  const [doubtQuestions, setDoubtQuestions] = useState({});
+  // distratores expandidos por questão
+  const [timerSeconds, setTimerSeconds] = useState(estadoInicial?.timerSeconds || 0);
+  const [questionTimes, setQuestionTimes] = useState(estadoInicial?.questionTimes || {});
+  const [eliminatedAlts, setEliminatedAlts] = useState(estadoInicial?.eliminatedAlts || {});
+  const [doubtQuestions, setDoubtQuestions] = useState(estadoInicial?.doubtQuestions || {});
 
   // Marca-Texto: armazena HTML destacado por questão e por zona
   const [highlights, setHighlights] = useState({});
@@ -65,7 +76,7 @@ export default function QuizRunner({
   // Uma questão só é considerada respondida quando for validada
   const currentAnswer = userAnswers[currentIndex];
   const isValidated = currentAnswer !== undefined;
-  const isCorrect = currentQ && currentAnswer === currentQ.gabarito;
+  // checagem de resposta em tempo real no modo estudo
   const currentPending = pendingAnswers[currentIndex];
   const progressPercent = total > 0 ? ((currentIndex + 1) / total) * 100 : 0;
 
@@ -73,8 +84,9 @@ export default function QuizRunner({
   const currentQHighlights = highlights[currentIndex] || {};
   const hasAnyHighlights = Object.keys(currentQHighlights).length > 0;
 
-  // Cronômetro
+  // Cronômetro (pausa quando pausado=true) e persistência local
   useEffect(() => {
+    if (pausado) return undefined;
     const interval = setInterval(() => {
       setTimerSeconds(s => s + 1);
       setQuestionTimes(prev => ({
@@ -83,7 +95,16 @@ export default function QuizRunner({
       }));
     }, 1000);
     return () => clearInterval(interval);
-  }, [currentIndex]);
+  }, [currentIndex, pausado]);
+
+  useEffect(() => {
+    if (!sessaoKey) return;
+    try {
+      localStorage.setItem('pmpe_runner_estado', JSON.stringify({
+        sessaoKey, currentIndex, userAnswers, pendingAnswers, timerSeconds, questionTimes, eliminatedAlts, doubtQuestions
+      }));
+    } catch { /* quota */ }
+  }, [sessaoKey, currentIndex, userAnswers, pendingAnswers, timerSeconds, questionTimes, eliminatedAlts, doubtQuestions]);
 
   // Selecionar alternativa candidata (sem validar imediatamente)
   const handleSelectCandidateAnswer = (letra) => {
@@ -354,10 +375,32 @@ export default function QuizRunner({
           </div>
 
           <div className="flex items-center gap-1 sm:gap-3 shrink-0">
-            <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-300 font-mono bg-white/[0.03] px-3 py-1.5 rounded-xl border border-white/[0.06]">
-              <Clock className="w-3.5 h-3.5 text-indigo-400" />
-              <span>{formatTime(timerSeconds)}</span>
-            </div>
+            {(() => {
+              const limite = total * 210;
+              const restante = Math.max(0, limite - timerSeconds);
+              const exibido = modo === 'simulado' ? restante : timerSeconds;
+              const critico = modo === 'simulado' && restante <= Math.max(60, Math.round(limite * 0.1));
+              return (
+                <div
+                  className={`flex items-center gap-1.5 text-xs sm:text-sm font-mono px-3 py-1.5 rounded-xl border ${
+                    critico ? 'text-rose-300 bg-rose-500/10 border-rose-500/30' : 'text-slate-300 bg-white/[0.03] border-white/[0.06]'
+                  }`}
+                  title={modo === 'simulado' ? 'Tempo restante (3m30s por questão)' : 'Tempo decorrido'}
+                >
+                  <Clock className={`w-3.5 h-3.5 ${critico ? 'text-rose-400' : 'text-indigo-400'}`} />
+                  <span>{formatTime(exibido)}</span>
+                </div>
+              );
+            })()}
+
+            <button
+              type="button"
+              onClick={() => setPausado(p => !p)}
+              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer"
+              title={pausado ? 'Retomar cronômetro' : 'Pausar cronômetro'}
+            >
+              {pausado ? <Play className="w-4 h-4 text-emerald-400" /> : <Pause className="w-4 h-4" />}
+            </button>
 
             <button
               onClick={handleFinish}
@@ -443,6 +486,20 @@ export default function QuizRunner({
         onTouchEnd={handleTextSelection}
         className="bg-[#121929] border border-white/[0.08] rounded-2xl sm:rounded-3xl p-4 sm:p-10 lg:p-12 shadow-2xl shadow-black/40 relative"
       >
+        {pausado && (
+          <div className="absolute inset-0 z-20 rounded-2xl sm:rounded-3xl bg-[#0b0f19]/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6 text-center">
+            <p className="text-lg font-semibold text-slate-100">Simulado pausado</p>
+            <p className="text-sm text-slate-400">O cronômetro está parado. Retome quando estiver pronto.</p>
+            <button
+              type="button"
+              onClick={() => setPausado(false)}
+              className="px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold flex items-center gap-2 cursor-pointer"
+            >
+              <Play className="w-4 h-4" />
+              Retomar
+            </button>
+          </div>
+        )}
         {/* Metadados e Ferramentas Discretas */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-white/[0.06]">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-slate-400 min-w-0">

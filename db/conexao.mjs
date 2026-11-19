@@ -206,12 +206,14 @@ export function abrirBanco(raiz) {
   ensureColumn('banco_questoes', 'ref_conferida', 'INTEGER DEFAULT 0');
   ensureColumn('banco_questoes', 'revisada', 'INTEGER DEFAULT 0');
   ensureColumn('banco_questoes', 'suspeita', 'INTEGER DEFAULT 0');
+  ensureColumn('banco_questoes', 'origem_texto', 'TEXT'); // de onde veio uma questão real que não é das provas importadas (ex.: apostila)
   ensureColumn('caderno_erros', 'topico', 'TEXT');
   ensureColumn('caderno_erros', 'hash_enunciado', 'TEXT');
   ensureColumn('questoes_respondidas', 'marcou_duvida', 'INTEGER DEFAULT 0');
   ensureColumn('caderno_erros', 'origem_erro', "TEXT DEFAULT 'ERRO'");
   ensureColumn('base_conhecimento', 'topico', 'TEXT');
   ensureColumn('banco_questoes', 'fonte_legal', 'TEXT');
+  ensureColumn('banco_questoes', 'base_chunk_id', 'INTEGER');
   ensureColumn('questoes_respondidas', 'fonte_legal', 'TEXT');
   ensureColumn('caderno_erros', 'fonte_legal', 'TEXT');
   ensureColumn('caderno_erros', 'anotacao', 'TEXT');

@@ -3,6 +3,7 @@ import { Search, X, ChevronDown } from 'lucide-react';
 import FormattedLegalText from './FormattedLegalText';
 import {
   fetchBaseStats,
+  fetchCoberturaBase,
   buscarBaseLegal,
   fetchFonteBase,
   ingerirBaseLegal,
@@ -27,20 +28,32 @@ const ATALHOS = [
 
 const TAMANHO_PAGINA = 30;
 
-function Dispositivo({ item, mostrarFonte }) {
+function Dispositivo({ item, mostrarFonte, onTreinarAssunto }) {
   return (
     <article className="py-6 border-b border-white/[0.06] space-y-3">
-      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-slate-500">
-        {item.referencia && <span className="font-mono text-slate-300">{item.referencia}</span>}
-        {mostrarFonte && <span>{item.fonte}</span>}
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm text-slate-500">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          {item.referencia && <span className="font-mono text-slate-300">{item.referencia}</span>}
+          {mostrarFonte && <span>{item.fonte}</span>}
+        </div>
+        {onTreinarAssunto && item.disciplina && (
+          <button
+            type="button"
+            onClick={() => onTreinarAssunto(item.disciplina, item.referencia || item.topico || '')}
+            className="text-xs text-indigo-300 hover:text-indigo-200 cursor-pointer"
+          >
+            Treinar este assunto →
+          </button>
+        )}
       </header>
       <FormattedLegalText text={item.texto} />
     </article>
   );
 }
 
-export default function VadeMecum() {
+export default function VadeMecum({ onTreinarAssunto }) {
   const [stats, setStats] = useState([]);
+  const [cobertura, setCobertura] = useState(null);
   const [disciplina, setDisciplina] = useState('');
   const [query, setQuery] = useState('');
   const [resultados, setResultados] = useState(null); // null = sem busca ativa
@@ -60,10 +73,20 @@ export default function VadeMecum() {
   const [salvando, setSalvando] = useState(false);
 
   const carregarStats = useCallback(async () => {
-    setStats((await fetchBaseStats()) || []);
+    const [s, c] = await Promise.all([fetchBaseStats(), fetchCoberturaBase()]);
+    setStats(s || []);
+    if (c) setCobertura(c);
   }, []);
 
-  useEffect(() => { carregarStats(); }, [carregarStats]);
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([fetchBaseStats(), fetchCoberturaBase()]).then(([s, c]) => {
+      if (!ativo) return;
+      setStats(s || []);
+      if (c) setCobertura(c);
+    }).catch(() => {});
+    return () => { ativo = false; };
+  }, []);
 
   const fontes = useMemo(() => {
     const map = new Map();
@@ -160,7 +183,18 @@ export default function VadeMecum() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 w-full space-y-8">
-      <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Vade Mecum</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-3xl sm:text-4xl font-bold text-slate-100 tracking-tight">Vade Mecum</h1>
+        {cobertura && (
+          <span className={`text-xs px-3 py-1 rounded-full border ${
+            cobertura.totalVazios === 0
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+          }`}>
+            {cobertura.totalVazios === 0 ? '100% do edital coberto' : `${cobertura.totalVazios} tópico(s) sem base`}
+          </span>
+        )}
+      </div>
 
       {/* Busca */}
       <div className="space-y-4">
@@ -231,7 +265,7 @@ export default function VadeMecum() {
                 ? <>Nada encontrado para <strong className="text-slate-200">{termoBuscado}</strong>. Tente o número do artigo ou uma palavra-chave.</>
                 : <>{resultados.length} {resultados.length === 1 ? 'resultado' : 'resultados'} para <strong className="text-slate-200">{termoBuscado}</strong></>}
             </p>
-            {resultados.map((r) => <Dispositivo key={r.id} item={r} mostrarFonte />)}
+            {resultados.map((r) => <Dispositivo key={r.id} item={r} mostrarFonte onTreinarAssunto={onTreinarAssunto} />)}
           </>
         )}
 
@@ -243,7 +277,7 @@ export default function VadeMecum() {
                 Remover fonte
               </button>
             </div>
-            {itens.map((r) => <Dispositivo key={r.id} item={r} />)}
+            {itens.map((r) => <Dispositivo key={r.id} item={r} onTreinarAssunto={onTreinarAssunto} />)}
             {carregando && <p className="text-sm text-slate-500">Carregando...</p>}
             {!carregando && itens.length < totalFonte && (
               <button type="button" onClick={carregarMais} className="w-full py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.09] text-sm text-slate-300 cursor-pointer">

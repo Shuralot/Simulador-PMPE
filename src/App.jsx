@@ -27,7 +27,8 @@ import {
   getSelectedModel, 
   DEFAULT_MODEL,
   generateQuestionsWithGemini,
-  dividirProporcao
+  dividirProporcao,
+  getAiLogs
 } from './services/geminiService';
 
 export default function App() {
@@ -38,17 +39,50 @@ export default function App() {
   const [exams, setExams] = useState([]);
 
   // Estados do Quiz
-  const [quizState, setQuizState] = useState('config'); // 'config' | 'running' | 'result'
-  const [currentQuiz, setCurrentQuiz] = useState([]);
-  const [quizMode, setQuizMode] = useState('estudo');
-  const [currentQuizMeta, setCurrentQuizMeta] = useState({});
+  const [quizState, setQuizState] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pmpe_sessao_ativa') || 'null');
+      return saved?.quiz?.length > 0 ? 'running' : 'config';
+    } catch { return 'config'; }
+  }); // 'config' | 'running' | 'result'
+  const [currentQuiz, setCurrentQuiz] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pmpe_sessao_ativa') || 'null');
+      return Array.isArray(saved?.quiz) ? saved.quiz : [];
+    } catch { return []; }
+  });
+  const [quizMode, setQuizMode] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pmpe_sessao_ativa') || 'null');
+      return saved?.modo || 'estudo';
+    } catch { return 'estudo'; }
+  });
+  const [currentQuizMeta, setCurrentQuizMeta] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pmpe_sessao_ativa') || 'null');
+      return saved?.meta || {};
+    } catch { return {}; }
+  });
   const [resultData, setResultData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState('');
+  const [showLogsErro, setShowLogsErro] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [noticeMsg, setNoticeMsg] = useState(null);
 
   // Pré-preenchimento ao vir de Zona Crítica
   const [prefilledSubject, setPrefilledSubject] = useState(null);
+
+  useEffect(() => {
+    if (quizState === 'running' && currentQuiz.length > 0) {
+      try {
+        localStorage.setItem('pmpe_sessao_ativa', JSON.stringify({ quiz: currentQuiz, modo: quizMode, meta: currentQuizMeta }));
+      } catch { /* quota */ }
+    } else {
+      localStorage.removeItem('pmpe_sessao_ativa');
+      localStorage.removeItem('pmpe_runner_estado');
+    }
+  }, [quizState, currentQuiz, quizMode, currentQuizMeta]);
 
   // Revisões do Caderno de Erros que já venceram (repetição espaçada)
   const [revisoesVencidas, setRevisoesVencidas] = useState([]);
@@ -103,6 +137,8 @@ export default function App() {
   // que as valida, deduplica e confere por resolução independente antes de entrarem no banco.
   const handleStartQuiz = async ({ disciplina, disciplinas, assunto, quantidade, modo }) => {
     setLoading(true);
+    setAiStatus('');
+    setShowLogsErro(false);
     setErrorMsg(null);
     setNoticeMsg(null);
 
@@ -158,7 +194,8 @@ export default function App() {
             trechosPorTopico: ctx.trechosPorTopico || {},
             evitarRepeticao: ctx.evitarRepeticao || '',
             topicosSugeridos: ctx.topicosSugeridos || {},
-            preferences
+            preferences,
+            onLog: (e) => setAiStatus(e.mensagem)
           });
 
           // Salva no banco as aprovadas e põe em quarentena as que divergiram na verificação independente
@@ -203,12 +240,15 @@ export default function App() {
       setErrorMsg(err.message || 'Falha ao gerar questões com a IA. Verifique sua chave de API e conexão.');
     } finally {
       setLoading(false);
+      setAiStatus('');
     }
   };
 
   // Iniciar Simulado a partir do Banco Local SQLite (100% Offline / Zero IA / Instantâneo 0s)
-  const handleStartLocalQuiz = async ({ disciplinas, tema, quantidade, modo }) => {
+  const handleStartLocalQuiz = async ({ disciplinas, tema, quantidade, modo, somenteReais = false, somenteIneditas = false }) => {
     setLoading(true);
+    setAiStatus('');
+    setShowLogsErro(false);
     setErrorMsg(null);
     setNoticeMsg(null);
 
@@ -217,7 +257,9 @@ export default function App() {
         disciplinas,
         tema,
         quantidade,
-        apenasIneditas: false
+        apenasIneditas: false,
+        somenteReais,
+        somenteIneditas
       });
 
       if (!res.questoes || res.questoes.length === 0) {
@@ -239,6 +281,7 @@ export default function App() {
       setErrorMsg(err.message || 'Falha ao buscar questões no banco local.');
     } finally {
       setLoading(false);
+      setAiStatus('');
     }
   };
 
@@ -355,15 +398,41 @@ export default function App() {
       <main className={`flex-1 flex flex-col py-6 sm:py-8 pb-24 sm:pb-8`}>
         {/* Notificação de Erro Global */}
         {errorMsg && (
-          <div className="max-w-4xl mx-auto mb-4 px-4 sm:px-6 w-full">
-            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center justify-between">
+          <div className="max-w-4xl mx-auto mb-4 px-4 sm:px-6 w-full space-y-2">
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center justify-between gap-3">
               <span>{errorMsg}</span>
-              <button
-                onClick={() => setErrorMsg(null)}
-                className="px-2.5 py-1 text-xs bg-rose-500/20 rounded-lg hover:bg-rose-500/30 cursor-pointer"
-              >
-                Fechar
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setShowLogsErro(v => !v)}
+                  className="px-2.5 py-1 text-xs bg-white/[0.08] rounded-lg hover:bg-white/[0.15] text-slate-200 cursor-pointer"
+                >
+                  {showLogsErro ? 'Ocultar logs' : 'Ver logs'}
+                </button>
+                <button
+                  onClick={() => setErrorMsg(null)}
+                  className="px-2.5 py-1 text-xs bg-rose-500/20 rounded-lg hover:bg-rose-500/30 cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+            {showLogsErro && (
+              <div className="p-3 rounded-xl bg-[#121929] border border-white/[0.08] text-xs font-mono space-y-1 max-h-56 overflow-y-auto">
+                {getAiLogs().slice(0, 12).map((l, idx) => (
+                  <div key={idx} className={l.nivel === 'error' ? 'text-rose-400' : l.nivel === 'warn' ? 'text-amber-300' : 'text-slate-300'}>
+                    [{l.ts?.slice(11, 19)}] [{l.etapa}] {l.mensagem}
+                    {l.usage ? ` (tokens: ${l.usage.entrada} in / ${l.usage.saida} out)` : ''}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {loading && aiStatus && (
+          <div className="max-w-2xl mx-auto mb-4 px-4 sm:px-6 w-full">
+            <div className="px-3.5 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-xs font-mono truncate">
+              {aiStatus}
             </div>
           </div>
         )}
@@ -430,7 +499,15 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'vade' && <VadeMecum />}
+        {activeTab === 'vade' && (
+          <VadeMecum
+            onTreinarAssunto={(disciplina, assunto) => {
+              setPrefilledSubject({ disciplina, assunto });
+              setActiveTab('quiz');
+              setQuizState('config');
+            }}
+          />
+        )}
 
         {/* Aba Desempenho & Repetição Espaçada (SQLite) */}
         {activeTab === 'history' && (

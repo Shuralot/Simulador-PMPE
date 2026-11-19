@@ -11,7 +11,7 @@ const CORE_DISCIPLINAS = [
   { id: 'Informática', nome: 'Informática', chips: ['Segurança da Informação', 'Windows 11', 'Excel 2019 e Calc', 'Backup e Nuvem'] }
 ];
 
-const QUANTIDADES = [4, 8, 12, 16, 20];
+const QUANTIDADES = [4, 8, 12, 16, 20, 60];
 
 const pill = (ativo) =>
   `px-3.5 py-1.5 rounded-full text-sm transition-colors cursor-pointer ${
@@ -35,28 +35,39 @@ export default function QuizConfig({
   const [quantidade, setQuantidade] = useState(8);
   const [modo, setModo] = useState('estudo'); // 'estudo' | 'simulado'
   const [sourceMode, setSourceMode] = useState('local'); // 'local' | 'ai'
+  const [localFilter, setLocalFilter] = useState('todas'); // 'todas' | 'reais' | 'ineditas'
   const [contagemData, setContagemData] = useState(null);
   const [avisoFracos, setAvisoFracos] = useState('');
   const [maisAberto, setMaisAberto] = useState(false);
 
-  const activeChips = CORE_DISCIPLINAS
+  const contagemAtual = selectedDisciplinas.length > 0 ? contagemData : null;
+  const topicosDisponiveis = contagemAtual?.topicos || [];
+  const fallbackChips = CORE_DISCIPLINAS
     .filter((d) => selectedDisciplinas.includes(d.id))
     .flatMap((d) => d.chips)
-    .slice(0, 6);
+    .map((topico) => ({ topico, total: null }));
+  const activeChips = selectedDisciplinas.length === 0
+    ? []
+    : (topicosDisponiveis.length > 0 ? topicosDisponiveis : fallbackChips);
 
   useEffect(() => {
     if (selectedDisciplinas.length === 0) return undefined;
     let isMounted = true;
+    const chips = CORE_DISCIPLINAS
+      .filter((d) => selectedDisciplinas.includes(d.id))
+      .flatMap((d) => d.chips);
     fetchContagemBanco({
       disciplinas: selectedDisciplinas,
       tema: assunto.trim(),
-      chips: activeChips
+      chips,
+      somenteReais: sourceMode === 'local' && localFilter === 'reais',
+      somenteIneditas: sourceMode === 'local' && localFilter === 'ineditas'
     }).then((data) => {
       if (isMounted && data) setContagemData(data);
     }).catch(() => {});
 
     return () => { isMounted = false; };
-  }, [selectedDisciplinas, assunto]);
+  }, [selectedDisciplinas, assunto, sourceMode, localFilter]);
 
   useEffect(() => {
     if (prefilled) {
@@ -109,7 +120,9 @@ export default function QuizConfig({
         disciplinas: selectedDisciplinas,
         tema: assunto.trim(),
         quantidade: Number(quantidade),
-        modo
+        modo,
+        somenteReais: localFilter === 'reais',
+        somenteIneditas: localFilter === 'ineditas'
       });
     } else {
       if (!hasApiKey) {
@@ -143,6 +156,20 @@ export default function QuizConfig({
               )}
               <button type="button" onClick={aplicarPontosFracos} className="text-indigo-300 hover:text-indigo-200 cursor-pointer">
                 Focar nos pontos fracos
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDisciplinas(CORE_DISCIPLINAS.map((d) => d.id));
+                  setAssunto('');
+                  setQuantidade(60);
+                  setModo('simulado');
+                  setSourceMode('local');
+                  setAvisoFracos('Simulado Completo PMPE: 60 questões em modo prova (3h30).');
+                }}
+                className="text-emerald-300 hover:text-emerald-200 cursor-pointer"
+              >
+                Simulado 60q
               </button>
             </div>
           </div>
@@ -220,8 +247,8 @@ export default function QuizConfig({
               <div className="space-y-3">
                 <div className="flex items-baseline justify-between">
                   <h2 className="text-sm text-slate-400">Assunto específico</h2>
-                  {isTemaDefinido && contagemData && (
-                    <span className="text-sm text-slate-500">{contagemData.focoTemaTotal || 0} questões encontradas</span>
+                  {isTemaDefinido && contagemAtual && (
+                    <span className="text-sm text-slate-500">{contagemAtual.focoTemaTotal || 0} questões encontradas</span>
                   )}
                 </div>
                 <input
@@ -232,11 +259,19 @@ export default function QuizConfig({
                   className="w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-4 py-3 text-base text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-400/70"
                 />
                 <div className="flex flex-wrap gap-2">
-                  {activeChips.map((chip) => (
-                    <button key={chip} type="button" onClick={() => setAssunto(chip)} className={`${pill(assunto.trim().toLowerCase() === chip.toLowerCase())} !text-xs`}>
-                      {chip}
-                    </button>
-                  ))}
+                  {activeChips.map(({ topico, total }) => {
+                    const ativo = assunto.trim().toLowerCase() === topico.toLowerCase();
+                    return (
+                      <button
+                        key={topico}
+                        type="button"
+                        onClick={() => setAssunto(ativo ? '' : topico)}
+                        className={`${pill(ativo)} !text-xs`}
+                      >
+                        {topico}{total != null ? ` (${total})` : ''}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -250,10 +285,23 @@ export default function QuizConfig({
 
               <div className="space-y-3">
                 <h2 className="text-sm text-slate-400">Origem</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => setSourceMode('local')} className={pill(sourceMode === 'local')}>Acervo local</button>
-                  <button type="button" onClick={() => setSourceMode('ai')} className={pill(sourceMode === 'ai')}>Inéditas com IA</button>
+                  <button type="button" onClick={() => setSourceMode('ai')} className={pill(sourceMode === 'ai')}>Gerar novas com IA</button>
                 </div>
+                {sourceMode === 'local' && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button type="button" onClick={() => setLocalFilter('todas')} className={`${pill(localFilter === 'todas')} !text-xs`}>
+                      Provas + IA do banco
+                    </button>
+                    <button type="button" onClick={() => setLocalFilter('reais')} className={`${pill(localFilter === 'reais')} !text-xs`}>
+                      Só provas reais
+                    </button>
+                    <button type="button" onClick={() => setLocalFilter('ineditas')} className={`${pill(localFilter === 'ineditas')} !text-xs`}>
+                      Só IA salvas no banco
+                    </button>
+                  </div>
+                )}
                 {sourceMode === 'ai' && !hasApiKey && (
                   <p className="text-sm text-slate-400">Configure a chave do Gemini em Opções para gerar questões.</p>
                 )}

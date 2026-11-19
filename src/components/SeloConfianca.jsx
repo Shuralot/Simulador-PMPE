@@ -24,7 +24,7 @@ export default function SeloConfianca({ questao }) {
 export function BotoesGabarito({ questao }) {
   const [estado, setEstado] = useState(questao.revisada ? 'revisada' : '');
   const [erro, setErro] = useState('');
-  if (!questao.bancoId || String(questao.origem).toUpperCase().includes('REAL')) return null;
+  if (!questao.bancoId) return null;
 
   const marcar = async (acao) => {
     try {

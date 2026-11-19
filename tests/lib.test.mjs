@@ -255,6 +255,8 @@ test('filtro de tema: sigla curta casa só palavra inteira ("ECA" não pega "mec
   assert.equal(eca.match('Nos termos do ECA, o adolescente apreendido...'), true);
   assert.equal(eca.match('Lei Federal nº 8.069/1990 (Estatuto da Criança e do Adolescente)'), true);
   assert.equal(buildTemaMatcher('lei 8069').match('Lei nº 8.069/1990'), true);
+  assert.equal(buildTemaMatcher('lei 8.069').match('Lei nº 8.069/1990'), true);
+  assert.equal(buildTemaMatcher('Estatuto PMPE (Lei 6.783)').match('Segundo a Lei nº 6.783/1974 (Estatuto dos Policiais Militares de PE)'), true);
   assert.equal(buildTemaMatcher('medidas socioeducativas').match('A medida socioeducativa de internação'), true);
 });
 
@@ -276,4 +278,40 @@ test('selo de confiança: oficial, conferida, verificada pela IA e treino', asyn
   assert.equal(seloConfianca({ origem: 'INÉDITA', verificacao: 'OK' }).nivel, 'ia');
   assert.equal(seloConfianca({ origem: 'INÉDITA' }).nivel, 'treino');
   assert.equal(seloConfianca({ origem: 'INÉDITA', revisada: 1 }).nivel, 'revisada');
+});
+
+test('conferirFonteLegal: trecho de apostila não exige artigo', async () => {
+  const { conferirFonteLegal } = await import('../lib/validacaoQuestao.mjs');
+  assert.deepEqual(conferirFonteLegal({ fonteLegal: '' }, { fonte: 'Apostila PMPE 2026 — Informática', referencia: 'EXCEL (p. 12)' }), { ok: true, conferida: true });
+  assert.equal(conferirFonteLegal({ fonteLegal: '' }, { fonte: 'Ficha Edital PMPE — Informática', referencia: 'Item 4 — Backup' }).ok, true);
+});
+
+test('apostila: extrai questão A–E com cabeçalho Ano/Banca e separa o cargo do enunciado', async () => {
+  const { segmentarQuestoes, separarCabecalho, extrairAlternativas, ehCertoErrado } = await import('../lib/questoesApostila.mjs');
+  const txt = '1-Ano: 2025 Banca: INSTITUTO AOCP Órgão: TJ-PR Prova: INSTITUTO AOCP - 2025 - TJ-PR - Técnico Judiciário Considere que um indivíduo foi preso. É correto afirmar que\na) primeira.\nb) segunda.\nc) terceira.\nd) quarta.\ne) quinta.\n2-Ano: 2021 Banca: CESPE Órgão: X Prova: CESPE - 2021 - X - Analista Julgue o item. ( ) CERTO ( ) ERRADO';
+  const segs = segmentarQuestoes(txt);
+  assert.equal(segs.length, 2);
+  const { cabecalho, corpo } = separarCabecalho(segs[0].bruto);
+  assert.equal(cabecalho.banca, 'INSTITUTO AOCP');
+  assert.equal(cabecalho.cargo, 'Técnico Judiciário');
+  const q = extrairAlternativas(corpo);
+  assert.equal(q.alternativas.length, 5);
+  assert.equal(q.alternativas[4].texto, 'quinta.');
+  assert.ok(q.enunciado.startsWith('Considere que um indivíduo'));
+  assert.equal(ehCertoErrado(separarCabecalho(segs[1].bruto).corpo), true);
+});
+
+test('expandirConsulta: adiciona sinônimos jurídicos e do edital sem alterar termos comuns', async () => {
+  const { expandirConsulta } = await import('../lib/texto.mjs');
+  assert.ok(expandirConsulta('abordagem policial').includes('busca pessoal'));
+  assert.ok(expandirConsulta('crase').includes('acento grave'));
+  assert.equal(expandirConsulta('sintaxe'), 'sintaxe');
+});
+
+test('chunkLei: preserva cabeçalho Markdown em textos sem artigos', async () => {
+  const { chunkLei } = await import('../lib/leis.mjs');
+  const chunks = chunkLei('## Diagramas Lógicos\n\nTodo A é B significa que o conjunto A está contido em B e não há elemento fora.\n\n## Negações\n\nA negação da condicional mantém a primeira e nega a segunda.');
+  assert.equal(chunks.length, 2);
+  assert.ok(chunks[0].referencia.includes('Diagramas Lógicos'));
+  assert.ok(chunks[1].referencia.includes('Negações'));
 });

@@ -106,7 +106,7 @@ export async function getSavedApiKey() {
     if (!res.ok) return '';
     const data = await res.json();
     return data.key || '';
-  } catch (err) {
+  } catch {
     return '';
   }
 }
@@ -130,21 +130,21 @@ export async function fetchBancoStats() {
     const res = await fetch(`${API_BASE}/banco/stats`);
     if (!res.ok) return { total: 0, ineditas: 0, disciplinas: [], assuntos: [] };
     return await res.json();
-  } catch (err) {
+  } catch {
     return { total: 0, ineditas: 0, disciplinas: [], assuntos: [] };
   }
 }
 
-export async function fetchContagemBanco({ disciplinas, tema, chips = [] }) {
+export async function fetchContagemBanco({ disciplinas, tema, chips = [], somenteReais = false, somenteIneditas = false }) {
   try {
     const res = await fetch(`${API_BASE}/banco/contagem`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ disciplinas, tema, chips })
+      body: JSON.stringify({ disciplinas, tema, chips, somenteReais, somenteIneditas })
     });
     if (!res.ok) return null;
     return await res.json();
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -187,7 +187,7 @@ export async function registrarResultadoBanco(resultados) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resultados })
     });
-  } catch (err) {
+  } catch {
     console.error('Erro ao registrar estatísticas no banco de questões:', err);
   }
 }
@@ -321,5 +321,11 @@ export async function fetchFonteBase(fonte, { offset = 0, limite = 30 } = {}) {
 export async function fetchPainel() {
   const res = await fetch(`${API_BASE}/painel`);
   if (!res.ok) throw new Error('Falha ao carregar o painel de desempenho.');
+  return await res.json();
+}
+
+export async function fetchCoberturaBase() {
+  const res = await fetch(`${API_BASE}/base/cobertura`);
+  if (!res.ok) return null;
   return await res.json();
 }

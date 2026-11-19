@@ -34,6 +34,17 @@ export default function QuizResult({
   const percent = Math.round((correctCount / total) * 100);
   const wrongCount = total - correctCount;
 
+  const porDisciplina = Object.values(
+    quizData.reduce((acc, q, idx) => {
+      const disc = q.disciplina || 'Geral';
+      if (!acc[disc]) acc[disc] = { disciplina: disc, total: 0, acertos: 0, tempo: 0 };
+      acc[disc].total += 1;
+      if (userAnswers[idx] === q.gabarito) acc[disc].acertos += 1;
+      acc[disc].tempo += questionTimes[idx] || 0;
+      return acc;
+    }, {})
+  );
+
   useEffect(() => {
     if (percent >= 70) {
       confetti({
@@ -131,6 +142,30 @@ export default function QuizResult({
           </button>
         </div>
       </div>
+
+      {/* Desempenho por Disciplina */}
+      {porDisciplina.length > 0 && (
+        <div className="bg-[#121929] border border-white/[0.08] rounded-3xl p-5 sm:p-6 space-y-3">
+          <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Desempenho por Disciplina</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {porDisciplina.map((d) => {
+              const taxa = Math.round((d.acertos / d.total) * 100);
+              const medio = Math.round(d.tempo / d.total);
+              return (
+                <div key={d.disciplina} className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-slate-200 truncate">{d.disciplina}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{d.acertos}/{d.total} acertos · {medio}s/questão</div>
+                  </div>
+                  <span className={`text-sm font-bold font-mono shrink-0 ${taxa >= 75 ? 'text-emerald-400' : taxa >= 60 ? 'text-indigo-300' : 'text-rose-400'}`}>
+                    {taxa}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Seção de Revisão */}
       <div>

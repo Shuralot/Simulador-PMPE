@@ -169,6 +169,12 @@ test('chips: tópicos do edital com contagem coerente com o sorteio', async () =
   assert.ok(foco.body.focoTemaTotal >= t.total);
   const { body } = await post('/banco/buscar', { disciplinas: ['Direito Constitucional'], tema: t.topico, quantidade: Math.min(t.total, 20) });
   assert.equal(body.questoes.length, Math.min(t.total, 20));
+
+  // Chips/aliases populares (Estatuto PMPE, Análise Combinatória) encontram as questões do tópico
+  const pmpe = await post('/banco/contagem', { disciplinas: ['Direitos Humanos e Legislação Extravagante'], tema: 'Estatuto PMPE (Lei 6.783)' });
+  assert.ok(pmpe.body.focoTemaTotal >= 10, `esperava >=10 para Estatuto PMPE, veio ${pmpe.body.focoTemaTotal}`);
+  const comb = await post('/banco/contagem', { disciplinas: ['Raciocínio Lógico-Matemático'], tema: 'Análise Combinatória' });
+  assert.ok(comb.body.focoTemaTotal >= 10, `esperava >=10 para Análise Combinatória, veio ${comb.body.focoTemaTotal}`);
 });
 
 test('auditoria: banco saneado, sem duplicatas de provas e sem problemas', async () => {

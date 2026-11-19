@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ExternalLink, Eye, EyeOff } from 'lucide-react';
-import { testApiKey, saveApiKey, removeApiKey, saveSelectedModel, DEFAULT_MODEL } from '../services/geminiService';
+import { testApiKey, saveApiKey, removeApiKey, saveSelectedModel, DEFAULT_MODEL, getAiLogs, clearAiLogs } from '../services/geminiService';
 import { savePreferences, resetPreferences } from '../services/preferencesService';
 import { saveApiKeyToDB } from '../services/api';
 import Interruptor from './Interruptor';
@@ -46,6 +46,7 @@ export default function SettingsTab({ apiKey, setApiKey, model = DEFAULT_MODEL, 
   const [isEditingKey, setIsEditingKey] = useState(!apiKey);
   const [outroModelo, setOutroModelo] = useState('');
 
+  const [aiLogs, setAiLogs] = useState(() => getAiLogs());
   const modeloConhecido = MODELOS.some((m) => m.id === model);
 
   const handlePrefChange = (field, value) => setPreferences(savePreferences({ [field]: value }));
@@ -255,6 +256,38 @@ export default function SettingsTab({ apiKey, setApiKey, model = DEFAULT_MODEL, 
           Restaurar padrões
         </button>
       </div>
+
+      <Secao titulo="Logs das requisições da IA">
+        <div className="py-4 space-y-3">
+          <div className="flex items-center justify-between gap-3 text-sm text-slate-400">
+            <span>Últimas {aiLogs.length} ocorrências (modelo, tokens, falhas e cortes).</span>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setAiLogs(getAiLogs())} className="px-3 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 text-xs cursor-pointer">
+                Atualizar
+              </button>
+              {aiLogs.length > 0 && (
+                <button type="button" onClick={() => { clearAiLogs(); setAiLogs([]); }} className="px-3 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs cursor-pointer">
+                  Limpar
+                </button>
+              )}
+            </div>
+          </div>
+          {aiLogs.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhum log registrado ainda. Eles aparecem aqui quando você gerar questões inéditas.</p>
+          ) : (
+            <div className="rounded-xl bg-black/30 border border-white/[0.08] p-3 max-h-64 overflow-y-auto font-mono text-xs space-y-1.5">
+              {aiLogs.map((l, idx) => (
+                <div key={idx} className={l.nivel === 'error' ? 'text-rose-400' : l.nivel === 'warn' ? 'text-amber-300' : 'text-slate-300'}>
+                  <span className="text-slate-500">[{l.ts?.slice(11, 19)}]</span>{' '}
+                  <span className="text-indigo-300">[{l.etapa}]</span>{' '}
+                  {l.mensagem}
+                  {l.usage ? <span className="text-slate-400"> · tokens: {l.usage.entrada} in / {l.usage.saida} out (total {l.usage.total})</span> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Secao>
       </div>
     </div>
   );
